@@ -70,7 +70,7 @@ object JDBConnection {
             val connection = ds.executeDataRow(s"SELECT * FROM qross_connections WHERE connection_name='$connectionName'")
             if (connection.nonEmpty) {
                 connections += connectionName -> new JDBConnection(
-                    connection.getString("database_type"),
+                    connection.getString("connection_type"),
                     connection.getString("connection_string"),
                     connection.getString("username"),
                     connection.getString("password")

@@ -4,6 +4,6 @@ import io.qross.core.DataRow
 
 object Global {
     val CORES: Int = Runtime.getRuntime.availableProcessors
-    val HOME_PATH: String = System.getProperty("user.dir")
-    val DATA_HUB_DIR: String = HOME_PATH + "/datahub/"
+    val USER_HOME_DIR: String = System.getProperty("user.dir")
+    val QROSS_WORK_DIR: String = USER_HOME_DIR + "/qross/"
 }
