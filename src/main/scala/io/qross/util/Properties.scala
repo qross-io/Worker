@@ -2,32 +2,36 @@ package io.qross.util
 
 import java.io._
 
-import io.qross.jdbc.{JDBConnection, MySQL}
-import org.sqlite.JDBC
-
 import scala.util.{Success, Try}
 
 object Properties {
-    
+   
     private val props = new java.util.Properties()
-    private val externalPath = new File(Properties.getClass.getProtectionDomain.getCodeSource.getLocation.getPath).getParentFile.getAbsolutePath.replace("\\", "/") + "/qross.ds.properties"
+
     //private val internalPath = Properties.getClass.getResource("/conf.properties").toString.replace("jar:", "").replace("file:/", "")
-    private val internalStream = Properties.getClass.getResourceAsStream("/conf.properties")
+    //private val internalStream = Properties.getClass.getResourceAsStream("/conf.properties")
     //private lazy val externalOutput = new FileOutputStream(internalPath)
     
-    props.load(new BufferedInputStream(new FileInputStream(new File(externalPath))))
-    props.load(new BufferedReader(new InputStreamReader(internalStream)))
-    
-    private val extraPath = Properties.get("extra_properties")
-    if (extraPath != "") props.load(new BufferedInputStream(new FileInputStream(new File(externalPath))))
-    
-    if (!props.containsKey(JDBConnection.PRIMARY)) {
-        Output.writeExceptions("Can't find properties key mysql.qross, it must be set in conf.properties in resources directory.")
-        System.exit(1)
+    //props.load(new BufferedInputStream(new FileInputStream(new File(externalPath))))
+
+    private val onlineFile =  new File("/azkaban/datahub/conf.properties")
+    if (onlineFile.exists()) {
+        props.load(new BufferedInputStream(new FileInputStream(onlineFile)))
     }
-    else if (!MySQL.testConnection()) {
-        Output.writeExceptions("Can't open primary database, please check your connection string of mysql.qross in conf.properties.")
-        System.exit(1)
+    else {
+        //local
+        val externalFile = new File(new File(Properties.getClass.getProtectionDomain.getCodeSource.getLocation.getPath).getParentFile.getAbsolutePath.replace("\\", "/") + "/dbs.properties")
+        if (externalFile.exists()) {
+            props.load(new BufferedInputStream(new FileInputStream(externalFile)))
+        }
+        //in jar
+        else {
+            props.load(new BufferedReader(new InputStreamReader(Properties.getClass.getResourceAsStream("/conf.properties"))))
+        }
+    }
+
+    def contains(key: String): Boolean = {
+        props.containsKey(key)
     }
     
     def get(key: String, defaultValue: String = ""): String = {
@@ -61,10 +65,6 @@ object Properties {
         else {
             false
         }
-    }
-    
-    def contains(key: String): Boolean = {
-        props.containsKey(key)
     }
     
     /*

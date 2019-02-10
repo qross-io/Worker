@@ -1,58 +1,18 @@
 package io.qross.util
 
-import java.io.{File, InputStream}
+import java.io.InputStream
 import java.net.{HttpURLConnection, MalformedURLException, URL}
 
 import com.fasterxml.jackson.databind.node.JsonNodeType
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
-import io.qross.core.{DataRow, DataTable}
 
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
 
 object Json {
-    def fromText(text: String): Json = Json()
+    def fromText(text: String): Json = Json(text)
     def fromURL(url: String, post: String = ""): Json = Json().readURL(url, post)
-    
-    def main(args: Array[String]): Unit = {
-        
-        //val mapper = new ObjectMapper()
-        //val root = mapper.readTree(new URL("http://localhost/1.htm"))
-        //val node = root.at("/grade")
-        
-        //node.fields().forEachRemaining(field => println(field.getKey))
-        //Json.fromURL("http://localhost/1.htm").findDataRow("/score").foreach((k, v) => println(k + "+" + v))
-
-        val table = DataTable()
-        //table.addField("A", DataType.NUMBER)
-        //table.addField("B", DataType.TEXT)
-        val f = new File("c:\\lonfile.txt")
-        println(f.length())
-        println(f.getName)
-        /*
-        println(node.textValue())
-        println("------------------------")
-        println("array: " + node.isArray)
-        println("big decimal: " + node.isBigDecimal)
-        println("big integer: " + node.isBigInteger)
-        println("binary: " + node.isBinary)
-        println("boolean: " + node.isBoolean)
-        println("container node: " + node.isContainerNode)
-        println("double: " + node.isDouble)
-        println("float: " + node.isFloat)
-        println("floating point number: " + node.isFloatingPointNumber)
-        println("int: " + node.isInt)
-        println("integral number: " + node.isIntegralNumber)
-        println("long: " + node.isLong)
-        println("null: " + node.isNull)
-        println("object: " + node.isObject)
-        println("pojo: " + node.isPojo)
-        println("short: " + node.isShort)
-        println("textual: " + node.isTextual)
-        println("value node: " + node.isValueNode)
-        */
-    }
 }
 
 case class Json(text: String = "") {
@@ -193,7 +153,7 @@ case class Json(text: String = "") {
             case JsonNodeType.BINARY => node.toString
             case JsonNodeType.MISSING => "MISSING"
             case JsonNodeType.NULL => "NULL"
-            case JsonNodeType.NUMBER => {
+            case JsonNodeType.NUMBER =>
                     if (node.isIntegralNumber) {
                         if (node.isInt) {
                             node.intValue()
@@ -210,7 +170,6 @@ case class Json(text: String = "") {
                             node.doubleValue()
                         }
                     }
-                }
             case JsonNodeType.OBJECT => node.toString
             case JsonNodeType.POJO => node.toString
             case JsonNodeType.STRING => node.textValue()

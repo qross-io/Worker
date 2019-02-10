@@ -1,7 +1,5 @@
 package io.qross.util
 
-import io.qross.core.DataRow
-
 import scala.io.Source
 
 case class OpenResourceFile(path: String) {
@@ -24,7 +22,6 @@ case class OpenResourceFile(path: String) {
     
     def replaceWith(row: DataRow): OpenResourceFile = {
         if (output == "") output = content
-
         row.foreach((key, value) => {
             output = output.replace("${" + key + "}", if (value != null) value.toString else "")
         })
@@ -39,8 +36,9 @@ case class OpenResourceFile(path: String) {
     def close(): Unit = {
         source.close()
     }
-    
-    override def toString: String = {
+
+    def getContent(): String = {
+        if (output == "") output = content
         source.close()
         output
     }

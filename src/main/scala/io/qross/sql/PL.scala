@@ -1,4 +1,4 @@
-package io.qross.pl
+package io.qross.sql
 
 class PL(SQL: String) {
 

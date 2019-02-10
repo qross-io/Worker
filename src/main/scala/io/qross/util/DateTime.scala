@@ -3,6 +3,7 @@ package io.qross.util
 import java.time.format.DateTimeFormatter
 import java.time.temporal.{ChronoField, ChronoUnit}
 import java.time.{LocalDateTime, OffsetDateTime, ZoneId}
+import java.util.regex.Pattern
 
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
@@ -12,10 +13,7 @@ object DateTime {
     def now: DateTime = DateTime()
     def from(dateTime: DateTime): DateTime = DateTime.now.setLocalDataTime(dateTime.localDateTime)
     def of(epochSecond: Long): DateTime = DateTime(epochSecond.toString, "EPOCH")
-    def of(year: Int, month: Int, dayOfMonth: Int): DateTime = {
-        DateTime(f"$year-$month%02d-$dayOfMonth%02d 00:00:00", "yyyy-MM-dd HH:mm:ss")
-    }
-    def of(year: Int, month: Int, dayOfMonth: Int, hourOfDay: Int, minute: Int, second: Int): DateTime = {
+    def of(year: Int, month: Int, dayOfMonth: Int, hourOfDay: Int = 0, minute: Int = 0, second: Int = 0): DateTime = {
         DateTime(f"$year-$month%02d-$dayOfMonth%02d $hourOfDay%02d:$minute%02d:$second%02d", "yyyy-MM-dd HH:mm:ss")
     }
     
@@ -25,7 +23,7 @@ object DateTime {
     def getSecondsSpan(beginTime: DateTime, endTime: DateTime): Long = ChronoUnit.SECONDS.between(beginTime.localDateTime, endTime.localDateTime)
 }
 
-case class DateTime(private val dateTime: String = "NOW", private var formatStyle: String = "") {
+case class DateTime(private var dateTime: String = "", private var formatStyle: String = "") {
     
     //E,EE,EEE = Sun
     //EEEE = Sunday
@@ -43,8 +41,24 @@ case class DateTime(private val dateTime: String = "NOW", private var formatStyl
     
     if (formatStyle == "") {
         formatStyle = dateTime.length match {
-            case 8 => "yyyyMMddHH"
-            case 10 => if (dateTime.contains("-")) "yyyy-MM-dd HH" else "yyyyMMddHH"
+            case 8 => "yyyyMMdd"
+            case 10 =>
+                if (dateTime.contains("-")) {
+                    "yyyy-MM-dd"
+                } else if (dateTime.contains("/")) {
+                    if (dateTime.indexOf("/") == 4) {
+                        "yyyy/MM/dd"
+                    }
+                    else {
+                        "dd/MM/yyyy"
+                    }
+                }
+                else if (Pattern.compile("").matcher(dateTime).find()) {
+                    "EPOCH"
+                }
+                else {
+                    "yyyyMMddHH"
+                }
             case 12 => "yyyyMMddHHmm"
             case 14 => "yyyyMMddHHmmss"
             case 18 => "yyyyMMddHHmmss.SSS"
@@ -53,19 +67,21 @@ case class DateTime(private val dateTime: String = "NOW", private var formatStyl
             case _ => "yyyy-MM-dd HH:mm:ss"
         }
     }
-    
+
+    if (dateTime.length == 8) {
+        dateTime += "00"
+        formatStyle += "HH"
+    }
+    else if (dateTime.length == 10 && (dateTime.contains("-") || dateTime.contains("/"))) {
+        dateTime += " 00"
+        formatStyle += " HH"
+    }
+
     private var localDateTime : LocalDateTime =
             if (formatStyle != "EPOCH") {
                 dateTime match {
-                    case "NOW" | "" => LocalDateTime.now()
-                    case _ =>
-                        LocalDateTime.parse(dateTime +
-                            (dateTime.length match {
-                                case 8 => "00"
-                                case 10 => if (dateTime.contains("-") || dateTime.contains("/")) " 00" else ""
-                                case _ => ""
-                            }),
-                            DateTimeFormatter.ofPattern(formatStyle))
+                    case "" => LocalDateTime.now()
+                    case _ => LocalDateTime.parse(dateTime, DateTimeFormatter.ofPattern(formatStyle))
                 }
             }
             else {
@@ -84,7 +100,8 @@ case class DateTime(private val dateTime: String = "NOW", private var formatStyl
     def get(field: ChronoField): Int = this.localDateTime.get(field)
     def getYear: Int = this.localDateTime.getYear
     def getMonth: Int = this.localDateTime.getMonthValue
-    def getDayOfWeek: String = this.getString("EEE")
+    def getWeekName: String = this.getString("EEE")
+    def getDayOfWeek: Int = this.localDateTime.getDayOfWeek.getValue
     def getDayOfMonth: Int = this.localDateTime.getDayOfMonth
     def getHour: Int = this.localDateTime.getHour
     def getMinute: Int = this.localDateTime.getMinute

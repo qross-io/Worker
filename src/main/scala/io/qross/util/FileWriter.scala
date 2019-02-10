@@ -2,13 +2,11 @@ package io.qross.util
 
 import java.io._
 
-import io.qross.core.DataTable
-
 case class FileWriter(filePath: String, deleteFileIfExists: Boolean = true) {
-    
+
     private var delimiter = "," //default delimiter when you write a collection
     private val file = new File(FilePath.locate(filePath))
-    
+
     if (file.exists() && deleteFileIfExists) {
         file.delete()
     }
@@ -16,7 +14,7 @@ case class FileWriter(filePath: String, deleteFileIfExists: Boolean = true) {
         file.getParentFile.mkdirs()
         file.createNewFile()
     }
-    
+
     //append = true
     private val fos = new FileOutputStream(file, true)
     if (filePath.toLowerCase().endsWith(".csv")) {
@@ -26,12 +24,12 @@ case class FileWriter(filePath: String, deleteFileIfExists: Boolean = true) {
     //PrintWriter and FileWriter is advanced implements of OutputStreamWriter
     //private val output = new PrintWriter(file)
     //private val output = new BufferedWriter(new java.io.FileWriter(file))
-    
+
     def delimit(delimiter: String): FileWriter = {
         this.delimiter = delimiter
         this
     }
-    
+
     def writeTable(table: DataTable): FileWriter = {
         writeLine(table.getLabelNames.mkString(delimiter))
         table.foreach(row => {
@@ -39,12 +37,12 @@ case class FileWriter(filePath: String, deleteFileIfExists: Boolean = true) {
         })
         this
     }
-    
-def writeLine(line: String): FileWriter = {
-        output.append(line + System.getProperty("line.separator"))
+
+    def writeLine(line: Any*): FileWriter = {
+        output.append(line.mkString(this.delimiter) + System.getProperty("line.separator"))
         this
     }
-    
+
     def close(): Unit = {
         output.close()
     }
