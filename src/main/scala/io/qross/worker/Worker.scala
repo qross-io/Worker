@@ -10,7 +10,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook
 
 import scala.collection.immutable.HashSet
 
-object Test {
+object Worker {
     def main(args: Array[String]): Unit = {
 
     }

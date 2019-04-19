@@ -1,4 +1,4 @@
-package io.qross.sql;
+package io.qross.psql;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,7 +12,7 @@ public class Statement {
     public Object instance; //与caption对应的实例对象
     public String sentence;
 
-    public io.qross.sql.PSQL PSQL;
+    public io.qross.psql.PSQL PSQL;
     //表示控制语句是否闭合, 用于解析检查
     public boolean isClosed = true;
     //所有子语句
@@ -24,7 +24,7 @@ public class Statement {
     public static final Pattern $FUNCTION = Pattern.compile("\\$\\{?(" + String.join("|", Function.NAMES) + ")\\s*\\(", Pattern.CASE_INSENSITIVE);
     public static final Pattern $VARIABLE = Pattern.compile("\\$\\{?([a-z_][a-z0-9_]*)}?", Pattern.CASE_INSENSITIVE);
 
-    public Statement(io.qross.sql.PSQL PSQL, String caption, String sentence, String...expressions) {
+    public Statement(io.qross.psql.PSQL PSQL, String caption, String sentence, String...expressions) {
         this.PSQL = PSQL;
         this.caption = caption;
         this.sentence = sentence;

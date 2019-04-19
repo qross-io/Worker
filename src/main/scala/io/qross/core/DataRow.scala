@@ -1,8 +1,7 @@
 package io.qross.core
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import io.qross.core.DataType.DataType
-import io.qross.util.Json
+import io.qross.util.DataType.DataType
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -74,6 +73,13 @@ case class DataRow(private val items: (String, Any)*) {
         else {
             None
         }
+    }
+
+    def combine(otherRow: DataRow): DataRow = {
+        for ((field, value) <- otherRow.columns) {
+            this.set(field, value)
+        }
+        this
     }
     
     def getString(fieldName: String, defaultValue: String = "NULL"): String = this.get(fieldName) match {
@@ -150,12 +156,54 @@ case class DataRow(private val items: (String, Any)*) {
     def getFields: List[String] = this.fields.keySet.toList
     def getDataTypes: List[DataType] = this.fields.values.toList
     def getValues: List[Any] = this.columns.values.toList
+
+    def getFirstString(defaultVlaue: String = ""): String = {
+        this.columns.headOption match {
+            case Some(field) => field._2.toString
+            case None => defaultVlaue
+        }
+    }
+
+    def getFirstInt(defaultValue: Int = 0): Int = {
+        this.fields.headOption match {
+            case Some(field) => this.getInt(field._1)
+            case None => defaultValue
+        }
+    }
+
+    def getFirstLong(defaultValue: Long = 0L): Long = {
+        this.fields.headOption match {
+            case Some(field) => this.getLong(field._1)
+            case None => defaultValue
+        }
+    }
+
+    def getFirstFloat(defaultValue: Float = 0F): Float = {
+        this.fields.headOption match {
+            case Some(field) => this.getFloat(field._1)
+            case None => defaultValue
+        }
+    }
+
+    def getFirstDouble(defaultValue: Double = 0D): Double = {
+        this.fields.headOption match {
+            case Some(field) => this.getDouble(field._1)
+            case None => defaultValue
+        }
+    }
+
+    def getFirstBoolean(defaultValue: Boolean = false): Boolean = {
+        this.fields.headOption match {
+            case Some(field) => this.getBoolean(field._1)
+            case None => defaultValue
+        }
+    }
+
+
     
     def contains(fieldName: String): Boolean = this.columns.contains(fieldName)
     def contains(fieldName: String, value: Any): Boolean = this.columns.contains(fieldName) && this.getString(fieldName) == value.toString
     def size: Int = this.columns.size
-    def isEmpty: Boolean = this.fields.isEmpty
-    def nonEmpty: Boolean = this.fields.nonEmpty
     
     def join(delimiter: String): String = {
         val values = new mutable.StringBuilder()

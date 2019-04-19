@@ -4,7 +4,7 @@ import java.sql._
 import java.util.regex.Pattern
 
 import io.qross.core.{DataRow, DataTable, DataType}
-import io.qross.util.{Parameter, Properties, Timer}
+import io.qross.util.{Parameter, PropertiesX, Timer}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -75,7 +75,7 @@ class DataSource (connectionName: String = DataSource.DEFAULT) {
     private var batchSQLs = new ArrayBuffer[String]()
     private var batchValues = new ArrayBuffer[Vector[Any]]()
     
-    private val connectionString = if (connectionName != "sqlite.memory") Properties.get(connectionName) else "jdbc:sqlite::memory:"
+    private val connectionString = if (connectionName != "sqlite.memory") PropertiesX.get(connectionName) else "jdbc:sqlite::memory:"
     private val dataSourceType = connectionName.substring(0, connectionName.indexOf("."))
     private val driver = dataSourceType match {
         case "sqlite" => "org.sqlite.JDBC"

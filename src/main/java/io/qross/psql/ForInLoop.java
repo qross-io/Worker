@@ -1,6 +1,6 @@
-package io.qross.sql;
+package io.qross.psql;
 
-import io.qross.util.DataRow;
+import io.qross.core.DataRow;
 
 import java.util.ArrayList;
 import java.util.List;

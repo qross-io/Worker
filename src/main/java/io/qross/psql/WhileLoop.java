@@ -1,4 +1,4 @@
-package io.qross.sql;
+package io.qross.psql;
 
 //WhileLoop(String condition);
 public class WhileLoop {

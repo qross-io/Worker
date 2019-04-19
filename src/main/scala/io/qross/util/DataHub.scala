@@ -1,11 +1,10 @@
 package io.qross.util
 
 import java.io.File
-import java.util.concurrent.ConcurrentLinkedQueue
 
+import io.qross.core.Batcher
 import io.qross.util.DataType.DataType
 import io.qross.util.Output._
-import org.apache.tools.ant.types.FileList.FileName
 
 import scala.collection.mutable
 import scala.collection.parallel.mutable.ParArray
@@ -27,12 +26,15 @@ class DataHub () {
 
     private var TO_BE_CLEAR: Boolean = false
 
+    //producers/consumers amount
+    private var LINES: Int = Global.CORES
+    private var TANKS: Int = 3
     //selectSQL, @param
     private val pageSQLs = new mutable.HashMap[String, String]()
     //selectSQL, (@param, beginKey, endKey, blockSize)
     private val blockSQLs = new mutable.HashMap[String, (String, Long, Long, Int)]()
-    //存储生产者消费者处理模式中的中间结果
-    private val DATA = new ConcurrentLinkedQueue[DataTable]()
+    //selectSQL
+    private var processSQLs = new mutable.ArrayBuffer[String]()
 
     private var EXCEL: Excel = _
     private var EMAIL: Email = _
@@ -44,6 +46,8 @@ class DataHub () {
     //全局变量-最后一次get方法的结果集数量
     private var $COUNT: Int = 0
     private var $TOTAL: Int = 0
+
+    var WebContext:String =""
     
     // ---------- system ----------
     
@@ -536,6 +540,11 @@ class DataHub () {
         this
     }
 
+    def postExcelTo(url: String, data: String = ""): DataHub = {
+        JSON = new Json(HttpClient.postFile(url, EXCEL.path, data))
+        this
+    }
+
     //actualInitialRow - append
     //def withStyle - initialRow + 1, TABLE.rows.size, initialColumn, TABLE.columns.size
     //def withAlternateStyle - initialRow + 2, TABLE.rows.size, initialColumn, TABLE.columns.size
@@ -785,14 +794,9 @@ class DataHub () {
             println(selectSQL)
         }
 
-        //TABLE.merge(CURRENT.executeDataTable(selectSQL, values: _*))
-        PlaceHolder("@").findIn(selectSQL) match {
-            case Some(param) => pageSQLs += selectSQL -> param
-            case None =>
-                TABLE.merge(CURRENT.executeDataTable(selectSQL, values: _*))
-                $TOTAL += TABLE.count()
-                $COUNT = TABLE.count()
-        }
+        TABLE.merge(CURRENT.executeDataTable(selectSQL, values: _*))
+        $TOTAL += TABLE.count()
+        $COUNT = TABLE.count()
 
         this
     }
@@ -803,6 +807,18 @@ class DataHub () {
 
     def TOTAL: Int = {
         $TOTAL
+    }
+
+    //设置并行度
+    def pipes(amount: Int): DataHub = {
+        LINES = amount
+        this
+    }
+
+    //设置缓冲区数量
+    def tanks(amount: Int): DataHub = {
+        TANKS = amount;
+        this
     }
 
     //按limit分页
@@ -831,6 +847,7 @@ class DataHub () {
     //select * from table where id>@id AND id<=@id
     //select id from table order by id asc limit 1
     //select max(id) from table
+    //beginKeyOrSQL为整数时左开右闭, 为SQL时左闭右闭
     def block(selectSQL: String, beginKeyOrSQL: Any, endKeyOrSQL: Any, blockSize: Int = 10000): DataHub = {
 
         reset()
@@ -842,8 +859,8 @@ class DataHub () {
         PlaceHolder("@").findIn(selectSQL) match {
             case Some(param) => blockSQLs +=
                 selectSQL -> (param,
-                             if (beginKeyOrSQL.isInstanceOf[String]) CURRENT.executeDataRow(beginKeyOrSQL.asInstanceOf[String]).getFirstLong() else beginKeyOrSQL.asInstanceOf[Long],
-                             if (endKeyOrSQL.isInstanceOf[String]) CURRENT.executeDataRow(endKeyOrSQL.asInstanceOf[String]).getFirstLong() else endKeyOrSQL.asInstanceOf[Long],
+                             if (beginKeyOrSQL.isInstanceOf[String]) CURRENT.executeDataRow(beginKeyOrSQL.asInstanceOf[String]).getFirstLong() else if (beginKeyOrSQL.isInstanceOf[Int]) beginKeyOrSQL.asInstanceOf[Int].toLong else beginKeyOrSQL.asInstanceOf[Long],
+                             if (endKeyOrSQL.isInstanceOf[String]) CURRENT.executeDataRow(endKeyOrSQL.asInstanceOf[String]).getFirstLong() else if (endKeyOrSQL.isInstanceOf[Int]) endKeyOrSQL.asInstanceOf[Int].toLong else endKeyOrSQL.asInstanceOf[Long],
                              blockSize)
             case None => TABLE.merge(CURRENT.executeDataTable(selectSQL))
         }
@@ -851,8 +868,77 @@ class DataHub () {
         this
     }
 
+    //多线程执行同一条更新语句, beginKeyOrSQL为整数时左开右闭, 为SQL时左闭右闭
+    def bulk(nonQuerySQL: String, beginKeyOrSQL: Any, endKeyOrSQL: Any, bulkSize: Int = 100000): DataHub = {
+
+        if (DEBUG) {
+            println(nonQuerySQL)
+        }
+
+        PlaceHolder("@").findIn(nonQuerySQL) match {
+            case Some(param) =>
+                    var begin = if (beginKeyOrSQL.isInstanceOf[String]) CURRENT.executeDataRow(beginKeyOrSQL.asInstanceOf[String]).getFirstLong() - 1 else if (beginKeyOrSQL.isInstanceOf[Int]) beginKeyOrSQL.asInstanceOf[Int].toLong else beginKeyOrSQL.asInstanceOf[Long]
+                    val end = if (endKeyOrSQL.isInstanceOf[String]) CURRENT.executeDataRow(endKeyOrSQL.asInstanceOf[String]).getFirstLong() else if (endKeyOrSQL.isInstanceOf[Int]) endKeyOrSQL.asInstanceOf[Int].toLong else endKeyOrSQL.asInstanceOf[Long]
+
+                    while (begin < end) {
+                        Bulker.QUEUE.add(nonQuerySQL.replaceFirst("@" + param, begin.toString).replace("@" + param, (if (begin + bulkSize >= end) end else begin + bulkSize).toString))
+                        begin += bulkSize
+                    }
+
+                val parallel = new Parallel()
+                //producer
+                for (i <- 0 until LINES) {
+                    parallel.add(new Bulker(CURRENT))
+                }
+                parallel.startAll(1)
+                parallel.waitAll()
+
+                //blockSize
+            case None => CURRENT.executeNonQuery(nonQuerySQL)
+        }
+
+        this
+    }
+
+
+
     def join(selectSQL: String, on: (String, String)*): DataHub = {
         TABLE.join(CURRENT.executeDataTable(selectSQL), on: _*)
+        this
+    }
+
+
+    def pass(querySentence: String, default:(String, Any)*): DataHub = {
+        if (DEBUG) println(querySentence)
+        if (TABLE.isEmpty) {
+            if (default.nonEmpty) {
+                TABLE.addRow(DataRow(default: _*))
+            }
+            else {
+                throw new Exception("No data to pass. Please ensure data exists or provide default value")
+            }
+        }
+        TABLE.cut(CURRENT.tableSelect(querySentence, TABLE))
+
+        this
+    }
+
+    //1. get 单线程生产
+    //2. pass 单线程加工
+    //3. put 单线程消费
+    //4. page/block 多线程生产
+    //5. process 多线程加工
+    //6. batch 多线程消费
+
+    // #1+3 生产->消费
+    // #1+2+3 生产->传递->消费
+    // #4+3 多线程生产单线程消费
+    // #4+5+3 多线程生产多线程加工
+    // #4+6 多线程生产多线程消费
+    // #4+5+6 多线程加工多线程消费
+
+    def process(selectSQL: String): DataHub = {
+        processSQLs += selectSQL
         this
     }
     
@@ -867,11 +953,12 @@ class DataHub () {
     def delete(deleteSQL: String): DataHub = put(deleteSQL)
     def put(nonQuerySQL: String): DataHub = {
 
+        if (DEBUG) {
+            TABLE.show(10)
+            println(nonQuerySQL)
+        }
+
         if (TABLE.nonEmpty) {
-            if (DEBUG) {
-                TABLE.show(10)
-                println(nonQuerySQL)
-            }
             TARGET.tableUpdate(nonQuerySQL, TABLE)
         }
 
@@ -891,7 +978,85 @@ class DataHub () {
     def update(updateSQL: String, table: DataTable): DataHub = put(updateSQL, table)
     def delete(deleteSQL: String, table: DataTable): DataHub = put(deleteSQL, table)
     def put(nonQuerySentence: String, table: DataTable): DataHub = {
+
+        if (DEBUG) {
+            println(nonQuerySentence)
+        }
+
         TARGET.tableUpdate(nonQuerySentence, table)
+        this
+    }
+
+    // #4+6 多线程生产多线程消费
+    // #4+5+6 多线程加工多线程消费
+    def batch(nonQuerySentence: String): DataHub = {
+
+        //pageSQLs or blockSQLs
+        //processSQLs
+        //batchSQL
+
+        val parallel = new Parallel()
+
+        //生产者
+        for ((selectSQL, param) <- pageSQLs) {
+            if (param.equalsIgnoreCase("offset")) {
+                //offset
+                val pageSize = "\\d+".r.findFirstMatchIn(selectSQL.substring(selectSQL.indexOf("@" + param) + 7)) match {
+                    case Some(ps) => ps.group(0).toInt
+                    case None => 10000
+                }
+
+                //producer
+                for (i <- 0 until LINES) { //Global.CORES
+                    parallel.add(new Pager(CURRENT, selectSQL, "@" + param, pageSize, TANKS))
+                }
+            }
+        }
+
+        //生产者
+        for ((selectSQL, config) <- blockSQLs) {
+            //SELECT * FROM table WHERE id>@id AND id<=@id;
+
+            var i = if (config._2 == 0) 0 else config._2 - 1
+            while (i < config._3) {
+                var SQL = selectSQL
+                SQL = s"@${config._1}".r.replaceFirstIn(SQL, i.toString)
+                i += config._4
+                if (i > config._3) {
+                    i = config._3
+                }
+                SQL = s"@${config._1}".r.replaceFirstIn(SQL, i.toString)
+                Blocker.QUEUE.add(SQL)
+            }
+
+            //producer
+            for (i <- 0 until LINES) { //Global.CORES
+                parallel.add(new Blocker(CURRENT))
+            }
+        }
+
+        //中间多个加工者
+        for (index <- processSQLs.indices) {
+            for (i <- 0 until 8) {
+                parallel.add(new Processer(CURRENT, processSQLs(index), index, TANKS))
+            }
+        }
+
+        //最终消费者
+        for (i <- 0 until LINES) {
+            parallel.add(new Batcher(TARGET, nonQuerySentence))
+        }
+
+        parallel.startAll(0.1F)
+        parallel.waitAll()
+
+        pageSQLs.clear()
+        blockSQLs.clear()
+        processSQLs.clear()
+
+        Processer.DATA.clear()
+        Processer.CUBEs.clear()
+
         this
     }
 
@@ -906,16 +1071,15 @@ class DataHub () {
                     case None => 10000
                 }
 
-                val cube = new Cube()
                 val parallel = new Parallel()
                 //producer
-                for (i <- 0 until 8) {  //Global.CORES
-                    parallel.add(new Mover(CURRENT, cube, selectSQL, "@" + param, pageSize))
+                for (i <- 0 until LINES) {  //Global.CORES
+                    parallel.add(new Pager(CURRENT, selectSQL, "@" + param, pageSize, TANKS))
                 }
-                parallel.startAll(1)
+                parallel.startAll(0.1F)
                 //consumer
-                while(!cube.isClosed || Mover.DATA.size() > 0 || parallel.running) {
-                    val table = Mover.DATA.poll()
+                while(!Pager.CUBE.isClosed || Pager.DATA.size() > 0 || parallel.running) {
+                    val table = Pager.DATA.poll()
                     if (table != null) {
                         $TOTAL += table.count()
                         $COUNT = table.count()
@@ -924,7 +1088,6 @@ class DataHub () {
                     }
                     Timer.sleep(0.1F)
                 }
-                Output.writeMessage("Exit While")
                 parallel.waitAll()
                 Output.writeMessage("Exit All Page")
 
@@ -980,7 +1143,7 @@ class DataHub () {
             //SELECT * FROM table WHERE id>@id AND id<=@id;
 
             //producer
-            var i = config._2 - 1
+            var i = if (config._2 == 0) 0 else config._2 - 1
             while (i < config._3) {
                 var SQL = selectSQL
                 SQL = s"@${config._1}".r.replaceFirstIn(SQL, i.toString)
@@ -989,15 +1152,14 @@ class DataHub () {
                     i = config._3
                 }
                 SQL = s"@${config._1}".r.replaceFirstIn(SQL, i.toString)
-                println(SQL)
                 Blocker.QUEUE.add(SQL)
             }
 
             //consumer
             val parallel = new Parallel()
             //producer
-            for (i <- 0 until 8) {  //Global.CORES
-                parallel.add(new Blocker(CURRENT))
+            for (i <- 0 until LINES) {  //Global.CORES
+                parallel.add(new Blocker(CURRENT, TANKS))
             }
             parallel.startAll(1)
             //consumer
@@ -1180,22 +1342,7 @@ class DataHub () {
         TABLE.label(alias: _*)
         this
     }
-    
-    def pass(querySentence: String, default:(String, Any)*): DataHub = {
-        if (DEBUG) println(querySentence)
-        if (TABLE.isEmpty) {
-            if (default.nonEmpty) {
-                TABLE.addRow(DataRow(default: _*))
-            }
-            else {
-                throw new Exception("No data to pass. Please ensure data exists or provide default value")
-            }
-        }
-        TABLE.cut(CURRENT.tableSelect(querySentence, TABLE))
-        
-        this
-    }
-    
+
     def foreach(callback: DataRow => Unit): DataHub = {
         TABLE.foreach(callback)
         this
@@ -1319,7 +1466,16 @@ class DataHub () {
         JSON = Json.fromURL(url, post)
         this
     }
-    
+
+    def openJsonAuthApi(url: String, userName: String, password: String): DataHub = {
+        JSON = Json.fromURLWithAuth(url, userName, password)
+        this
+    }
+    // 接口文本内容
+    def openJsonAuthApiStr(url: String, userName: String, password: String): DataHub = {
+        WebContext = Json.fromURLWithAuthStr(url, userName, password)
+        this
+    }
     def find(jsonPath: String): DataHub = {
         TABLE.copy(JSON.findDataTable(jsonPath))
         this
@@ -1355,7 +1511,13 @@ class DataHub () {
         BUFFER.clear()
         TABLE.clear()
         pageSQLs.clear()
+        blockSQLs.clear()
+        processSQLs.clear()
 
         FilePath.delete(holder)
+    }
+    // cmz
+    def getJson():Unit={
+        println(this.JSON.text)
     }
 }

@@ -21,7 +21,7 @@ object DataType extends Enumeration {
         }
     
         name match {
-            case "int" | "integer" | "long" | "boolean" | "timestamp" => DataType.INTEGER
+            case "bit" | "int" | "integer" | "long" | "boolean" | "timestamp" => DataType.INTEGER
             case "float" | "double" | "bigdecimal"  => DataType.DECIMAL
             case "[B" => DataType.BLOB
             case _ => DataType.TEXT

@@ -29,7 +29,7 @@ object Output {
         }
     }
     
-    def writeExceptions(messages: Any*): Unit = {
+    def writeException(messages: Any*): Unit = {
         for (message <- messages) {
             System.err.println(DateTime.now + " [ERROR] " + message)
         }

@@ -13,14 +13,14 @@ class JDBConfiguration(connectionName: String) {
     else if (connectionName.endsWith(".sqlite")) {
         this.connectionString = "jdbc:sqlite:" + connectionName
     }
-    else if (Properties.contains(connectionName)) {
-        this.connectionString = Properties.get(connectionName)
+    else if (PropertiesX.contains(connectionName)) {
+        this.connectionString = PropertiesX.get(connectionName)
     }
-    else if (Properties.contains(connectionName + ".url")) {
-        this.connectionString = Properties.get(connectionName + ".url")
-        this.username = Properties.get(connectionName + ".username")
-        this.password = Properties.get(connectionName + ".password")
-        this.driver = Properties.get(connectionName + ".driver")
+    else if (PropertiesX.contains(connectionName + ".url")) {
+        this.connectionString = PropertiesX.get(connectionName + ".url")
+        this.username = PropertiesX.get(connectionName + ".username")
+        this.password = PropertiesX.get(connectionName + ".password")
+        this.driver = PropertiesX.get(connectionName + ".driver")
     }
     else {
         throw new Exception("Can't find the connection name in properties.")

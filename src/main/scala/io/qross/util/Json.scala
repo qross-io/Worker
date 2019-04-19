@@ -13,6 +13,9 @@ import scala.util.{Failure, Success, Try}
 object Json {
     def fromText(text: String): Json = Json(text)
     def fromURL(url: String, post: String = ""): Json = Json().readURL(url, post)
+    def fromURLWithAuth(url: String, userName: String, password: String): Json = Json(HttpClient.get(url, userName, password))
+    //cmz
+    def fromURLWithAuthStr(url: String, userName: String, password: String): String = HttpClient.get(url, userName, password)
 }
 
 case class Json(text: String = "") {

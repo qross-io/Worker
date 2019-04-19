@@ -1,13 +1,13 @@
 package io.qross.core
 
-import java.util.regex.Pattern
-
-import io.qross.core.DataType.DataType
-import io.qross.jdbc.DataSource
+import io.qross.util.DataType.DataType
 import io.qross.util.Output._
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
+import scala.collection.parallel.mutable.ParArray
+import scala.util.Random
 import scala.util.control.Breaks._
 
 object DataTable {
@@ -29,23 +29,6 @@ object DataTable {
         })
         table
     }
-    
-    def main(args: Array[String]): Unit = {
-        val table = DataTable()
-        table.insertRow("a" -> 1, "b" -> "HELLO", "c" -> "I", "d" -> "am", "e" -> "chinese", "f" -> "!")
-        table.label(
-            "a" -> "AA",
-            "b" -> "BB",
-            "c" -> "CC",
-            "d" -> "DD",
-            "e" -> "EE",
-            "f" -> "FF"
-        )
-        table.show(10)
-        
-        println(table.toHtmlString)
-        table.clear()
-    }
 }
 
 case class DataTable(private val items: DataRow*) {
@@ -56,46 +39,54 @@ case class DataTable(private val items: DataRow*) {
     
     //initial rows
     for (row <- items) {
-        this.addRow(row)
+        addRow(row)
     }
-    
-    def addField(field: String, dataType: DataType): Unit = {
-        // . is illegal char in SQLite and field name often contains "." in hive columns
-        var name = field
-        if (name.contains(".")) name = name.substring(name.lastIndexOf(".") + 1)
-        if (!Pattern.matches("^[a-zA-Z_][a-zA-Z0-9_]*$", name) || this.contains(name)) name = "column" + this.fields.size
-        this.fields += name -> dataType
-        this.labels += name -> field
+
+    def addField(fieldName: String, dataType: DataType): Unit = {
+        // . is illegal char in SQLite
+        val name = if (fieldName.contains(".")) fieldName.substring(fieldName.lastIndexOf(".") + 1) else fieldName
+        fields += name -> dataType
+        labels += name -> name
         //add column for every row
-        //for (row <- this.rows) {
+        //for (row <- rows) {
         //    row.set(name, null)
         //}
+    }
+
+    def addFieldWithLabel(fieldName: String, labelName: String, dataType: DataType): Unit = {
+        val name = if (fieldName.contains(".")) fieldName.substring(fieldName.lastIndexOf(".") + 1) else fieldName
+        fields += name -> dataType
+        labels += name -> labelName
     }
     
     def label(alias: (String, String)*): DataTable = {
         for ((fieldName, otherName) <- alias) {
-            this.labels += fieldName -> otherName
+            labels += fieldName -> otherName
         }
         this
     }
     
-    def contains(field: String): Boolean = this.fields.contains(field)
+    def contains(field: String): Boolean = fields.contains(field)
     
     def addRow(row: DataRow): Unit = {
         for (field <- row.getFields) {
-            if (!this.contains(field)) {
+            if (!contains(field)) {
                 row.getDataType(field) match {
-                    case Some(dataType) => this.addField(field, dataType)
+                    case Some(dataType) => addField(field, dataType)
                     case None =>
                 }
             }
         }
-        this.rows += row
+        rows += row
+    }
+
+    def par: ParArray[DataRow] = {
+        rows.par
     }
     
     def foreach(callback: DataRow => Unit): DataTable = {
         //val table = DataTable()
-        this.rows.foreach(row => {
+        rows.foreach(row => {
             callback(row)
             //table.addRow(row)
         })
@@ -104,7 +95,7 @@ case class DataTable(private val items: DataRow*) {
     
     def collect(filter: DataRow => Boolean) (map: DataRow => DataRow): DataTable = {
         val table = DataTable()
-        this.rows.foreach(row => {
+        rows.foreach(row => {
             if (filter(row)) {
                 table.addRow(map(row))
             }
@@ -114,7 +105,7 @@ case class DataTable(private val items: DataRow*) {
     
     def map(callback: DataRow => DataRow): DataTable = {
         val table = DataTable()
-        this.rows.foreach(row => {
+        rows.foreach(row => {
             table.addRow(callback(row))
         })
         table
@@ -122,7 +113,7 @@ case class DataTable(private val items: DataRow*) {
     
     def table(fields: (String, DataType)*)(callback: DataRow => DataTable): DataTable = {
         val table = DataTable.withFields(fields: _*)
-        this.rows.foreach(row => {
+        rows.foreach(row => {
             table.merge(callback(row))
         })
         table
@@ -130,7 +121,7 @@ case class DataTable(private val items: DataRow*) {
     
     def filter(callback: DataRow => Boolean): DataTable = {
         val table = DataTable()
-        this.rows.foreach(row => {
+        rows.foreach(row => {
             if (callback(row)) {
                 table.addRow(row)
             }
@@ -142,10 +133,10 @@ case class DataTable(private val items: DataRow*) {
         val table = DataTable()
         val set = new mutable.HashSet[DataRow]()
         if (fieldNames.isEmpty) {
-            this.rows.foreach(row => set += row)
+            rows.foreach(row => set += row)
         }
         else {
-            this.rows.foreach(row => {
+            rows.foreach(row => {
                 val newRow = DataRow()
                 fieldNames.foreach(fieldName => newRow.set(fieldName, row.get(fieldName).get))
                 set += newRow
@@ -156,16 +147,16 @@ case class DataTable(private val items: DataRow*) {
         table
     }
     
-    def count(): Int = this.rows.size
+    def count(): Int = rows.size
     
     def count(groupBy: String*): DataTable = {
         val table = DataTable()
         if (groupBy.isEmpty) {
-            table.addRow(DataRow("_count" -> this.count))
+            table.addRow(DataRow("_count" -> count))
         }
         else {
             val map = new mutable.HashMap[DataRow, Int]()
-            this.rows.foreach(row => {
+            rows.foreach(row => {
                 val newRow = DataRow.from(row, groupBy: _*)
                 if (map.contains(newRow)) {
                     map.update(newRow, map(newRow) + 1)
@@ -187,12 +178,12 @@ case class DataTable(private val items: DataRow*) {
         val table = DataTable()
         if (groupBy.isEmpty) {
             var s = 0D
-            this.rows.foreach(row => s += row.getDoubleOption(fieldName).getOrElse(0D))
+            rows.foreach(row => s += row.getDoubleOption(fieldName).getOrElse(0D))
             table.addRow(DataRow("_sum" -> s))
         }
         else {
             val map = new mutable.HashMap[DataRow, Double]()
-            this.rows.foreach(row => {
+            rows.foreach(row => {
                 val newRow = DataRow.from(row, groupBy: _*)
                 if (map.contains(newRow)) {
                     map.update(newRow, map(newRow) + row.getDoubleOption(fieldName).getOrElse(0D))
@@ -218,11 +209,11 @@ case class DataTable(private val items: DataRow*) {
             
             var count = 0D
             var sum = 0D
-            if (v > 0) this.plus(v)
+            if (v > 0) plus(v)
             
             def plus(v: Double): Unit = {
-                this.count += 1
-                this.sum += v
+                count += 1
+                sum += v
             }
             
             def get(): Double = {
@@ -238,12 +229,12 @@ case class DataTable(private val items: DataRow*) {
         val table = DataTable()
         if (groupBy.isEmpty) {
             var s = 0D
-            this.rows.foreach(row => s += row.getDoubleOption(fieldName).getOrElse(0D))
-            table.addRow(DataRow("_avg" -> s / this.count))
+            rows.foreach(row => s += row.getDoubleOption(fieldName).getOrElse(0D))
+            table.addRow(DataRow("_avg" -> s / count))
         }
         else {
             val map = new mutable.HashMap[DataRow, AVG]()
-            this.rows.foreach(row => {
+            rows.foreach(row => {
                 val newRow = DataRow.from(row, groupBy: _*)
                 if (map.contains(newRow)) {
                     map(newRow).plus(row.getDoubleOption(fieldName).getOrElse(0D))
@@ -268,14 +259,14 @@ case class DataTable(private val items: DataRow*) {
         case class MAX(number: Option[Double] = None) {
             
             var max: Option[Double] = None
-            if (number.nonEmpty) this.compare(number)
+            if (number.nonEmpty) compare(number)
             
             def compare(value: Option[Double]): Unit = {
                 value match {
                     case Some(v) =>
-                        max match {
+                        max = max match {
                             case Some(a) => Some(v max a)
-                            case None => max = Some(v)
+                            case None => Some(v)
                         }
                     case None =>
                 }
@@ -285,15 +276,15 @@ case class DataTable(private val items: DataRow*) {
         
         val table = DataTable()
         if (groupBy.isEmpty) {
-            var m = MAX()
-            this.rows.foreach(row => {
+            val m = MAX()
+            rows.foreach(row => {
                 m.compare(row.getDoubleOption(fieldName))
             })
             table.addRow(DataRow("_max" -> m.get().getOrElse("none")))
         }
         else {
             val map = new mutable.HashMap[DataRow, MAX]()
-            this.rows.foreach(row => {
+            rows.foreach(row => {
                 val newRow = DataRow.from(row, groupBy: _*)
                 if (map.contains(newRow)) {
                     map(newRow).compare(row.getDoubleOption(fieldName))
@@ -318,14 +309,14 @@ case class DataTable(private val items: DataRow*) {
         case class MIN(number: Option[Double] = None) {
         
             var min: Option[Double] = None
-            if (number.nonEmpty) this.compare(number)
+            if (number.nonEmpty) compare(number)
         
             def compare(value: Option[Double]): Unit = {
                 value match {
                     case Some(v) =>
-                        min match {
+                        min = min match {
                             case Some(a) => Some(v min a)
-                            case None => min = Some(v)
+                            case None => Some(v)
                         }
                     case None =>
                 }
@@ -336,14 +327,14 @@ case class DataTable(private val items: DataRow*) {
         val table = DataTable()
         if (groupBy.isEmpty) {
             val m = MIN()
-            this.rows.foreach(row => {
+            rows.foreach(row => {
                 m.compare(row.getDoubleOption(fieldName))
             })
             table.addRow(DataRow("_min" -> m.get().getOrElse("none")))
         }
         else {
             val map = new mutable.HashMap[DataRow, MIN]()
-            this.rows.foreach(row => {
+            rows.foreach(row => {
                 val newRow = DataRow.from(row, groupBy: _*)
                 if (map.contains(newRow)) {
                     map(newRow).compare(row.getDoubleOption(fieldName))
@@ -366,19 +357,30 @@ case class DataTable(private val items: DataRow*) {
     def take(amount: Int): DataTable = {
         val table = DataTable()
         for (i <- 0 until amount) {
-            table.addRow(this.rows(i))
+            table.addRow(rows(i))
         }
         
         table
     }
-    
+
+    def takeSample(amount: Int): DataTable = {
+        val table = DataTable()
+        Random.shuffle(rows)
+            .take(amount)
+            .foreach(row => {
+                table.addRow(row)
+            })
+
+        table
+    }
+
     def insertRow(fields: (String, Any)*): DataTable = {
-        this.addRow(DataRow(fields: _*))
+        addRow(DataRow(fields: _*))
         this
     }
     
     def updateWhile(filter: DataRow => Boolean)(setValue: DataRow => Unit): DataTable = {
-        this.rows.foreach(row => {
+        rows.foreach(row => {
             if (filter(row)) {
                 setValue(row)
             }
@@ -389,7 +391,7 @@ case class DataTable(private val items: DataRow*) {
     def upsertRow(filter: DataRow => Boolean)(setValue: DataRow => Unit)(fields: (String, Any)*): DataTable = {
         var exists = false
         breakable {
-            for(row <- this.rows) {
+            for(row <- rows) {
                 if (filter(row)) {
                     setValue(row)
                     exists = true
@@ -398,7 +400,7 @@ case class DataTable(private val items: DataRow*) {
             }
         }
         if (!exists) {
-            this.insertRow(fields: _*)
+            insertRow(fields: _*)
         }
         
         this
@@ -406,18 +408,18 @@ case class DataTable(private val items: DataRow*) {
     
     def deleteWhile(filter: DataRow => Boolean): DataTable = {
         val table = DataTable()
-        this.rows.foreach(row => {
+        rows.foreach(row => {
             if (!filter(row)) {
                 table.addRow(row)
             }
         })
-        this.clear()
+        clear()
         table
     }
     
-    def selectRow(filter: DataRow => Boolean)(fieldNames: String*): DataTable = {
+    def select(filter: DataRow => Boolean)(fieldNames: String*): DataTable = {
         val table = DataTable()
-        this.rows.foreach(row => {
+        rows.foreach(row => {
             if (filter(row)) {
                 val newRow = DataRow()
                 fieldNames.foreach(fieldName => {
@@ -428,9 +430,19 @@ case class DataTable(private val items: DataRow*) {
         })
         table
     }
+
+    def select(filter: DataRow => Boolean): ArrayBuffer[DataRow] = {
+        val rows = new ArrayBuffer[DataRow]()
+        this.rows.foreach(row => {
+            if (filter(row)) {
+                rows += row
+            }
+        })
+        rows
+    }
     
     def updateSource(SQL: String): DataTable = {
-        this.updateSource(DataSource.DEFAULT, SQL)
+        updateSource(DataSource.DEFAULT, SQL)
         this
     }
     
@@ -441,52 +453,143 @@ case class DataTable(private val items: DataRow*) {
         
         this
     }
-    
+
     def nonEmpty: Boolean = {
-        this.rows.nonEmpty
+        rows.nonEmpty
     }
     
     def isEmpty: Boolean = {
-        this.rows.isEmpty
+        rows.isEmpty
+    }
+
+    def isEmptySchema: Boolean = {
+        fields.isEmpty
+    }
+
+    def nonEmptySchema: Boolean = {
+        fields.nonEmpty
     }
     
     def copy(otherTable: DataTable): DataTable = {
-        this.clear()
-        this.union(otherTable)
+        clear()
+        union(otherTable)
         this
     }
     
     def cut(otherTable: DataTable): DataTable = {
-        this.clear()
-        this.merge(otherTable)
+        clear()
+        merge(otherTable)
         this
     }
     
     def merge(otherTable: DataTable): DataTable = {
-        this.union(otherTable)
+        union(otherTable)
         otherTable.clear()
         this
     }
     
     def union(otherTable: DataTable): DataTable = {
-        this.fields ++= otherTable.fields
-        this.labels ++= otherTable.labels
-        this.rows ++= otherTable.rows
+        fields ++= otherTable.fields
+        labels ++= otherTable.labels
+        rows ++= otherTable.rows
         this
     }
+
+    def join(otherTable: DataTable, on: (String, String)*): DataTable = {
+        fields ++= otherTable.fields
+        labels ++= otherTable.labels
+        for (row <- this.rows) {
+            for (line <- otherTable.rows) {
+                var matched = true
+                breakable {
+                    for (pair <- on) {
+                        if (row.getString(pair._1) != line.getString(pair._2)) {
+                            matched = false
+                            break
+                        }
+                    }
+                }
+                if (matched) {
+                    row.combine(line)
+                }
+            }
+        }
+        otherTable.clear()
+        this
+    }
+
+    def batchUpdate(dataSource: DataSource, nonQuerySQL: String): Boolean = {
+        if (nonEmpty) {
+            dataSource.tableUpdate(nonQuerySQL, this)
+            true
+        }
+        else {
+            false
+        }
+    }
     
-    def getFieldNames: List[String] = this.fields.keySet.toList
-    def getLabelNames: List[String] = this.labels.values.toList
-    def getLabels: mutable.LinkedHashMap[String, String] = this.labels
-    def getFields: mutable.LinkedHashMap[String, DataType] = this.fields
-    def getRows: mutable.ArrayBuffer[DataRow] = this.rows
-    def columns: Int = this.fields.size
-    def first: Option[DataRow] = if (this.rows.nonEmpty) Some(this.rows(0)) else None
-    def last: Option[DataRow] = if (this.rows.nonEmpty) Some(this.rows(this.rows.size - 1)) else None
+    def getFieldNames: List[String] = fields.keySet.toList
+    def getLabelNames: List[String] = labels.values.toList
+    def getLabels: mutable.LinkedHashMap[String, String] = labels
+    def getFields: mutable.LinkedHashMap[String, DataType] = fields
+    def getRows: mutable.ArrayBuffer[DataRow] = rows
+    def getRow(i: Int): Option[DataRow]= if (i < rows.size) Some(rows(i)) else None
+
+    def firstRow: Option[DataRow] = if (rows.nonEmpty) Some(rows(0)) else None
+    def lastRow: Option[DataRow] = if (rows.nonEmpty) Some(rows(rows.size - 1)) else None
+
+    def getFirstCellStringValue(defaultValue: String = ""): String = {
+        firstRow match {
+            case Some(row) => row.getFirstString(defaultValue)
+            case None => defaultValue
+        }
+    }
+
+    def getFirstCellIntValue(defaultValue: Int = 0): Int = {
+        firstRow match {
+            case Some(row) => row.getFirstInt(defaultValue)
+            case None => defaultValue
+        }
+    }
+
+    def getFirstCellLongValue(defaultValue: Long = 0L): Long = {
+        firstRow match {
+            case Some(row) => row.getFirstLong(defaultValue)
+            case None => defaultValue
+        }
+    }
+
+    def getFirstCellFloatValue(defaultValue: Float = 0F): Float = {
+        firstRow match {
+            case Some(row) => row.getFirstFloat(defaultValue)
+            case None => defaultValue
+        }
+    }
+
+    def getFirstCellDoubleValue(defaultValue: Double = 0D): Double = {
+        firstRow match {
+            case Some(row) => row.getFirstDouble(defaultValue)
+            case None => defaultValue
+        }
+    }
+
+    def getFirstCellBooleanValue(defaultValue: Boolean = false): Boolean = {
+        firstRow match {
+            case Some(row) => row.getFirstBoolean(defaultValue)
+            case None => defaultValue
+        }
+    }
+
+    def firstCellStringValue: String = getFirstCellStringValue()
+    def firstCellIntValue: Int = getFirstCellIntValue()
+    def firstCellLongValue: Long = getFirstCellLongValue()
+    def firstCellFloatValue: Float = getFirstCellFloatValue()
+    def firstCellDoubleValue: Double = getFirstCellDoubleValue()
+    def firstCellBooleanValue: Boolean = getFirstCellBooleanValue()
     
     def mkString(delimiter: String, fieldName: String): String = {
         val value = new StringBuilder()
-        for (row <- this.rows) {
+        for (row <- rows) {
             if (value.nonEmpty) {
                 value.append(delimiter)
             }
@@ -503,7 +606,7 @@ case class DataTable(private val items: DataRow*) {
         writeLine("------------------------------------------------------------------------")
         writeLine(rows.size, " ROWS")
         writeLine("------------------------------------------------------------------------")
-        writeLine(this.getFieldNames.mkString(", "))
+        writeLine(getLabelNames.mkString(", "))
         breakable {
             var i = 0
             for (row <- rows) {
@@ -519,13 +622,13 @@ case class DataTable(private val items: DataRow*) {
     
     override def toString: String = {
         val sb = new StringBuilder()
-        for ((fieldName, dataType) <- this.fields) {
+        for ((fieldName, dataType) <- fields) {
             if (sb.nonEmpty) {
                 sb.append(",")
             }
             sb.append("\"" + fieldName + "\":\"" + dataType + "\"")
         }
-        "{\"fields\":{" + sb.toString +"}, \"rows\":" + this.rows.asJava.toString + "}"
+        "{\"fields\":{" + sb.toString +"}, \"rows\":" + rows.asJava.toString + "}"
     }
     
     def toJsonString: String = {
@@ -534,19 +637,24 @@ case class DataTable(private val items: DataRow*) {
     
     def toHtmlString: String = {
         val sb = new StringBuilder()
-        sb.append("""<table cellpadding="4" cellspacing="1" border="0" style="background-color:#909090">""")
+        sb.append("""<table cellpadding="5" cellspacing="1" border="0" style="background-color:#909090">""")
         sb.append("<tr>")
-        this.fields.keySet.foreach(field => {
+        fields.keySet.foreach(field => {
             sb.append("""<th style="text-align: left; background-color:#D0D0D0">""")
-            sb.append(this.labels(field))
+            sb.append(labels(field))
             sb.append("</th>")
         })
         sb.append("</tr>")
-        this.rows.foreach(row => {
+        rows.foreach(row => {
             sb.append("<tr>")
-            row.getValues.foreach(value => {
-                sb.append("""<td style="background-color:#FFFFFF">""")
-                sb.append(value)
+            row.getFields.foreach(field => {
+                sb.append("""<td style="background-color: #FFFFFF;""")
+                row.getDataType(field) match {
+                    case Some(dt) => if (dt == DataType.DECIMAL || dt == DataType.INTEGER) sb.append(" text-align: right;")
+                    case _ =>
+                }
+                sb.append("""">""")
+                sb.append(row.getString(field))
                 sb.append("</td>")
             })
             sb.append("</tr>")
@@ -557,8 +665,8 @@ case class DataTable(private val items: DataRow*) {
     }
     
     def clear(): Unit = {
-        this.rows.clear()
-        this.fields.clear()
-        this.labels.clear()
+        rows.clear()
+        fields.clear()
+        labels.clear()
     }
 }

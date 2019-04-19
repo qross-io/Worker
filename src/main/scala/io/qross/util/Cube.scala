@@ -3,9 +3,9 @@ package io.qross.util
 class Cube(max: Int = -1) {
 
     private var value = -1
-    private var closed = false
+    private var threads = 0
 
-    def sum(v: Int = 1): Int = synchronized {
+    def increase(v: Int = 1): Int = synchronized {
         this.value += v
         this.value
     }
@@ -19,8 +19,19 @@ class Cube(max: Int = -1) {
     def isAchieved: Boolean = this.value >= this.max
 
     def close(): Unit = synchronized {
-        this.closed = true
+        this.value = -1
     }
 
-    def isClosed: Boolean = this.closed
+    def mark(): Unit = synchronized {
+        this.threads += 1
+    }
+
+    def wipe(): Unit = synchronized {
+        this.threads -= 1
+        if (this.threads == 0) {
+            this.value = -1
+        }
+    }
+
+    def isClosed: Boolean = this.value == -1 && this.threads == 0
 }

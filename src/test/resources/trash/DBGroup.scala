@@ -1,6 +1,4 @@
-package io.qross.jdbc
-
-import scala.collection.immutable
+package io.qross.jdbc;
 
 object DBGroup {
     val BASE = 0

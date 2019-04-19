@@ -2,83 +2,50 @@ package io.qross.util
 
 import java.io._
 
-import scala.util.{Success, Try}
+import io.qross.util.PropertiesK.props
+
+import scala.collection.mutable.ArrayBuffer
 
 object Properties {
-   
+
+    /*
+    加载顺序
+    与jar包同一目录下的 qross.properties
+    与jar包同一目录下的 dbs.properties
+    jar包运行参数 --properties 后的所有 properties文件 适用于worker
+            jar包内的conf.properties
+    数据库中的 properties / qross_properties
+            数据库中的 连接串
+            连接名冲突时先到先得
+    将所有连接串保存在 JDBC.connections中
+    */
+
     private val props = new java.util.Properties()
+    private val externalPath = new File(PropertiesK.getClass.getProtectionDomain.getCodeSource.getLocation.getPath).getParentFile.getAbsolutePath.replace("\\", "/")
 
-    //private val internalPath = Properties.getClass.getResource("/conf.properties").toString.replace("jar:", "").replace("file:/", "")
-    //private val internalStream = Properties.getClass.getResourceAsStream("/conf.properties")
-    //private lazy val externalOutput = new FileOutputStream(internalPath)
-    
-    //props.load(new BufferedInputStream(new FileInputStream(new File(externalPath))))
+    loadLocalFile(externalPath + "/qross.properties")
+    loadLocalFile(externalPath + "/dbs.properties")
+    loadResourcesFile("/conf.properties")
 
-    private val onlineFile =  new File("/azkaban/datahub/conf.properties")
-    if (onlineFile.exists()) {
-        props.load(new BufferedInputStream(new FileInputStream(onlineFile)))
-    }
-    else {
-        //local
-        val externalFile = new File(new File(Properties.getClass.getProtectionDomain.getCodeSource.getLocation.getPath).getParentFile.getAbsolutePath.replace("\\", "/") + "/dbs.properties")
-        if (externalFile.exists()) {
-            props.load(new BufferedInputStream(new FileInputStream(externalFile)))
-        }
-        //in jar
-        else {
-            props.load(new BufferedReader(new InputStreamReader(Properties.getClass.getResourceAsStream("/conf.properties"))))
-        }
-    }
-
-    def contains(key: String): Boolean = {
-        props.containsKey(key)
-    }
-    
-    def get(key: String, defaultValue: String = ""): String = {
-        if (props.containsKey(key)) {
-            props.getProperty(key)
-        }
-        else {
-            defaultValue
-        }
-    }
-    
-    def getInt(key: String, defaultValue: Int = 0): Int = {
-        if (props.containsKey(key)) {
-            Try(props.getProperty(key).toInt) match {
-                case Success(value) => value
-                case _ => defaultValue
-            }
-        }
-        else {
-            defaultValue
-        }
-    }
-    
-    def getBoolean(key: String): Boolean = {
-        if (props.containsKey(key)) {
-            props.getProperty(key).toLowerCase() match {
-                case "true" | "yes" | "ok" | "1" => true
-                case _ => false
-            }
+    def loadLocalFile(path: String): Boolean = {
+        val file = new File(path)
+        if (file.exists()) {
+            props.load(new BufferedInputStream(new FileInputStream(file)))
+            true
         }
         else {
             false
         }
     }
-    
-    /*
-    def set(key: String, value: String): Unit = {
-        props.setProperty(key, value)
-        props.store(externalOutput, "updated by user: " + key + " = " + value)
+
+    def loadResourcesFile(path: String): Boolean = {
+        try {
+            props.load(new BufferedReader(new InputStreamReader(PropertiesK.getClass.getResourceAsStream(path))))
+            true
+        }
+        catch {
+            case _ : Exception => false
+        }
     }
-    
-    def getDataSources: HashMap[String, String] = {
-        var sources = new HashMap[String, String]
-        props.entrySet().forEach(row => {
-            sources += (row.getKey.toString -> row.getValue.toString)
-        })
-        
-        sources
-    }*/
+
 }
