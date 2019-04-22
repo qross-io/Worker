@@ -47,10 +47,6 @@ case class DataTable(private val items: DataRow*) {
         val name = if (fieldName.contains(".")) fieldName.substring(fieldName.lastIndexOf(".") + 1) else fieldName
         fields += name -> dataType
         labels += name -> name
-        //add column for every row
-        //for (row <- rows) {
-        //    row.set(name, null)
-        //}
     }
 
     def addFieldWithLabel(fieldName: String, labelName: String, dataType: DataType): Unit = {
@@ -85,12 +81,21 @@ case class DataTable(private val items: DataRow*) {
     }
     
     def foreach(callback: DataRow => Unit): DataTable = {
-        //val table = DataTable()
         rows.foreach(row => {
             callback(row)
-            //table.addRow(row)
         })
-        this //table
+        this
+    }
+
+    //遍历并返回新的DataTable
+    def iterate(callback: DataRow => Unit): DataTable = {
+        val table = DataTable()
+        rows.foreach(row => {
+            callback(row)
+            table.addRow(row)
+        })
+
+        table
     }
     
     def collect(filter: DataRow => Boolean) (map: DataRow => DataRow): DataTable = {
@@ -100,6 +105,7 @@ case class DataTable(private val items: DataRow*) {
                 table.addRow(map(row))
             }
         })
+
         table
     }
     
@@ -108,6 +114,7 @@ case class DataTable(private val items: DataRow*) {
         rows.foreach(row => {
             table.addRow(callback(row))
         })
+
         table
     }
     
@@ -116,6 +123,7 @@ case class DataTable(private val items: DataRow*) {
         rows.foreach(row => {
             table.merge(callback(row))
         })
+
         table
     }
     
@@ -126,6 +134,7 @@ case class DataTable(private val items: DataRow*) {
                 table.addRow(row)
             }
         })
+
         table
     }
     
@@ -143,7 +152,7 @@ case class DataTable(private val items: DataRow*) {
             })
         }
         set.foreach(row => table.addRow(row))
-        
+
         table
     }
     

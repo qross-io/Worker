@@ -2,7 +2,6 @@ package io.qross.util
 
 import java.io.File
 
-import io.qross.core.Batcher
 import io.qross.util.DataType.DataType
 import io.qross.util.Output._
 
@@ -47,7 +46,6 @@ class DataHub () {
     private var $COUNT: Int = 0
     private var $TOTAL: Int = 0
 
-    var WebContext:String =""
     
     // ---------- system ----------
     
@@ -56,11 +54,6 @@ class DataHub () {
         this
     }
 
-    def interruptOnException(enabled: Boolean = true) : DataHub = {
-        //INTERRUPT_ON_EXCEPTION = enabled
-        this
-    }
-    
     // ---------- open ----------
     
     def openCache(): DataHub = {
@@ -97,62 +90,6 @@ class DataHub () {
         }
         CURRENT = SOURCES(connectionName)
         this
-    }
-
-    def openRDS(): DataHub = {
-        open("mysql.rds")
-    }
-
-    def openRDS(databaseName: String): DataHub = {
-        open("mysql.rds", databaseName)
-    }
-
-    def openODS(): DataHub = {
-        open("mysql.ods")
-    }
-
-    def openST(): DataHub = {
-        open("mysql.rds", "zichan360bi_st")
-    }
-
-    def openMID(): DataHub = {
-        open("mysql.rds", "zichan360bi_mid")
-    }
-
-    def openDW(): DataHub = {
-        open("mysql.rds", "zichan360bi_dw")
-    }
-
-    def openSlave(): DataHub = {
-        open("mysql.slave")
-    }
-
-    def openSlave(databaseName: String): DataHub = {
-        open("mysql.slave", databaseName)
-    }
-
-    def openAuthCenter(): DataHub = {
-        open("mysql.slave", "auth_center")
-    }
-
-    def openCallCenter(): DataHub = {
-        open("mysql.slave", "callcenter")
-    }
-
-    def openCase(): DataHub = {
-        open("mysql.slave", "zichan360_case")
-    }
-
-    def openHive(): DataHub = {
-        open("hive.default")
-    }
-
-    def openLocalHive(): DataHub = {
-        open("hive.localhost")
-    }
-
-    def openPresto(): DataHub = {
-        open("presto.default")
     }
 
     //文本文件相关
@@ -233,26 +170,6 @@ class DataHub () {
         }
         TARGET = SOURCES(connectionName)
         this
-    }
-
-    def saveAsRDS(database: String): DataHub = {
-        saveAs("mysql.rds", database)
-    }
-
-    def saveAsODS(): DataHub = {
-        saveAs("mysql.rds", "zichan360bi_ods")
-    }
-
-    def saveAsST(): DataHub = {
-        saveAs("mysql.rds", "zichan360bi_st")
-    }
-
-    def saveAsMID(): DataHub = {
-        saveAs("mysql.rds", "zichan360bi_mid")
-    }
-
-    def saveAsDW(): DataHub = {
-        saveAs("mysql.rds", "zichan360bi_dw")
     }
 
     def saveAsNewTextFile(fileNameOrFullPath: String, delimiter: String = ","): DataHub = {
@@ -1471,11 +1388,7 @@ class DataHub () {
         JSON = Json.fromURLWithAuth(url, userName, password)
         this
     }
-    // 接口文本内容
-    def openJsonAuthApiStr(url: String, userName: String, password: String): DataHub = {
-        WebContext = Json.fromURLWithAuthStr(url, userName, password)
-        this
-    }
+
     def find(jsonPath: String): DataHub = {
         TABLE.copy(JSON.findDataTable(jsonPath))
         this
@@ -1515,9 +1428,5 @@ class DataHub () {
         processSQLs.clear()
 
         FilePath.delete(holder)
-    }
-    // cmz
-    def getJson():Unit={
-        println(this.JSON.text)
     }
 }

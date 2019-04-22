@@ -5,18 +5,18 @@ import javax.script.{ScriptEngine, ScriptEngineManager, ScriptException}
 
 object Script {
     
-    def eval(script: String, default: Double = 0D): Double = {
+    def eval(expression: String): DataCell = {
         val jse: ScriptEngine = new ScriptEngineManager().getEngineByName("JavaScript")
         try {
-            jse.eval(script).toString.toDouble
+            new DataCell(jse.eval(expression))
         }
         catch {
             case e: ScriptException =>
                 e.printStackTrace()
-                default
+                null
         }
         
-        //The code doesn't work below.
+        //The code below doesn't work.
         //import scala.tools.nsc._
         //val interpreter = new Interpreter(new Settings())
         //interpreter.interpret("import java.text.{SimpleDateFormat => sdf}")

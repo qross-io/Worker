@@ -1,5 +1,7 @@
 package io.qross.util
 
+import java.util.Objects
+
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.qross.util.DataType.DataType
 
@@ -75,16 +77,29 @@ case class DataRow(private val items: (String, Any)*) {
         }
     }
 
-    def combine(otherRow: DataRow): DataRow = {
-        for ((field, value) <- otherRow.columns) {
-            this.set(field, value)
+    //by index
+    def get(index: Int): Option[Any] = {
+        if (index < this.columns.size) {
+            Some(this.columns.take(index + 1).last._2)
         }
-        this
+        else {
+            None
+        }
     }
-    
-    def getString(fieldName: String, defaultValue: String = "NULL"): String = this.get(fieldName) match {
-        case Some(value) => if (value != null) value.toString else defaultValue
-        case None => defaultValue
+
+    def getString(fieldName: String, defaultValue: String = ""): String = getStringOption(fieldName).getOrElse(defaultValue)
+    def getString(index: Int, defaultValue: String = ""): String = getStringOption(index).getOrElse(defaultValue)
+    def getStringOption(fieldNameOrIndex: Any): Option[String] = {
+        {
+            if (fieldNameOrIndex.isInstanceOf[Int]) {
+                get(fieldNameOrIndex.asInstanceOf[Int])
+            } else {
+                get(fieldNameOrIndex.asInstanceOf[String])
+            }
+        } match {
+            case Some(value) => if (value != null) Some(value.toString) else None
+            case None => None
+        }
     }
     
     def getInt(fieldName: String, defaultValue: Int = 0): Int = getIntOption(fieldName).getOrElse(defaultValue)
@@ -153,6 +168,14 @@ case class DataRow(private val items: (String, Any)*) {
         value == "yes" || value == "true" || value == "1" || value == "ok"
     }
 
+    def getDateTime(fieldName: String, defaultValue: DateTime = DateTime.of(1970, 1, 1)): DateTime = getDateTimeOption(fieldName).getOrElse(defaultValue)
+    def getDateTimeOption(fieldName: String): Option[DateTime] = {
+        getStringOption(fieldName) match {
+            case Some(value) => Some(DateTime(value))
+            case None => None
+        }
+    }
+
     def getFields: List[String] = this.fields.keySet.toList
     def getDataTypes: List[DataType] = this.fields.values.toList
     def getValues: List[Any] = this.columns.values.toList
@@ -204,7 +227,16 @@ case class DataRow(private val items: (String, Any)*) {
     def contains(fieldName: String): Boolean = this.columns.contains(fieldName)
     def contains(fieldName: String, value: Any): Boolean = this.columns.contains(fieldName) && this.getString(fieldName) == value.toString
     def size: Int = this.columns.size
-    
+    def isEmpty: Boolean = this.fields.isEmpty
+    def nonEmpty: Boolean = this.fields.nonEmpty
+
+    def combine(otherRow: DataRow): DataRow = {
+        for ((field, value) <- otherRow.columns) {
+            this.set(field, value)
+        }
+        this
+    }
+
     def join(delimiter: String): String = {
         val values = new mutable.StringBuilder()
         for (field <- getFields) {
@@ -222,6 +254,10 @@ case class DataRow(private val items: (String, Any)*) {
     
     override def equals(obj: scala.Any): Boolean = {
         this.columns == obj.asInstanceOf[DataRow].columns
+    }
+
+    override def hashCode(): Int = {
+        Objects.hash(columns, fields)
     }
     
     def clear(): Unit = {

@@ -3,19 +3,20 @@ package io.qross.util
 import java.sql._
 import java.util.regex.Pattern
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 object DataSource {
     
-    val DEFAULT = "mysql.rds"
-    val DEFAULT_DATABASE = "zichan360bi_metdata"
+    val DEFAULT = JDBC.QROSS
+    val DEFAULT_DATABASE = ""
 
     def openDefault() : DataSource = {
         new DataSource(DEFAULT, DEFAULT_DATABASE)
     }
 
     def createMemoryDatabase: DataSource = {
-        new DataSource("sqlite.memory")
+        new DataSource(DBType.Memory)
     }
     
     
@@ -58,6 +59,14 @@ object DataSource {
         
         exists
     }
+
+    def testConnection(connectionName: String = DEFAULT): Boolean = {
+        val ds = new DataSource(connectionName)
+        ds.open()
+        val connected = ds.connection != null
+        ds.close()
+        connected
+    }
 }
 
 class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseName: String = "") {
@@ -69,8 +78,7 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
     private val batchSQLs = new ArrayBuffer[String]()
     private val batchValues = new ArrayBuffer[Vector[Any]]()
 
-    private val config = new JDBConfiguration(connectionName)
-    private val isMySQL: Boolean = config.driver.contains("mysql")
+    private val config = JDBC.get(connectionName)
 
     private var connection: Option[Connection] = None //current connection
     private var tick: Long = -1L //not opened
@@ -78,7 +86,7 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
     def testConnection(): Boolean = {
         var connected = false
         try {
-            this.executeResultSet("SELECT 1 FROM dual")
+            this.executeResultSet("SELECT 1 AS test")
             connected = true
         }
         catch {
@@ -90,22 +98,41 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
 
     
     def open(): Unit = {
+        //检查driver
         try {
-            Class.forName(config.driver).newInstance
-            if (config.isAlone) {
+            Class.forName(config.driver).newInstance()
+        }
+        catch {
+            case e: ClassNotFoundException =>
+                if (config.alternativeDriver != "") {
+                    //检查备选driver
+                    try {
+                        Class.forName(config.alternativeDriver).newInstance()
+                    }
+                    catch {
+                        case e: ClassNotFoundException => System.err.println("Open database ClassNotFoundException " + e.getMessage)
+                    }
+                }
+                else {
+                    System.err.println("Open database ClassNotFoundException " + e.getMessage)
+                }
+        }
+
+        //尝试连接
+        try {
+            if (config.username != "") {
                 this.connection = Some(DriverManager.getConnection(config.connectionString, config.username, config.password))
             }
             else {
                 this.connection = Some(DriverManager.getConnection(config.connectionString))
             }
         } catch {
-            case e: InstantiationException => System.err.println("open database InstantiationException " + e.getMessage)
-            case e: IllegalAccessException => System.err.println("open database IllegalAccessException " + e.getMessage)
-            case e: ClassNotFoundException => System.err.println("open database ClassNotFoundException " + e.getMessage)
-            case e: SQLException => System.err.println("open database SQLException " + e.getMessage)
+            case e: InstantiationException => System.err.println("Open database InstantiationException " + e.getMessage)
+            case e: IllegalAccessException => System.err.println("Open database IllegalAccessException " + e.getMessage)
+            case e: SQLException => System.err.println("Open database SQLException " + e.getMessage)
         }
 
-        if (this.isMySQL) {
+        if (config.dbType == DBType.MySQL) {
             this.connection match {
                 case Some(conn) =>
                     try {
@@ -116,7 +143,7 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
                     }
                     catch {
                         case e: Exception =>
-                            System.err.println("test connection Exception " + e.getMessage)
+                            System.err.println("Test connection Exception " + e.getMessage)
                             connection = None
                     }
                 case None =>
@@ -159,13 +186,11 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
                 while (rs.next) {
                     val row = DataRow()
                     for (i <- 1 to columns) {
-                        //print(rs.getObject(i) + ", " + rs.getString(i) + "; ")
                         row.set(fields(i - 1), rs.getString(i))
                     }
-                    //println()
                     table.addRow(row)
                 }
-                if (!connectionName.startsWith("presto.")) {
+                if (config.dbType != DBType.Presto) {
                     rs.getStatement.close()
                 }
                 rs.close()
@@ -175,7 +200,31 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
         
         table
     }
-    
+
+    def executeMapList(SQL: String, values: Any*): List[Map[String, Any]] = {
+        var mapList = new ArrayBuffer[Map[String, Any]]()
+
+        this.executeResultSet(SQL, values: _*) match {
+            case Some (rs) =>
+                val meta = rs.getMetaData()
+                val columns: Int = meta.getColumnCount()
+                while (rs.next) {
+                    var row = new mutable.HashMap[String, Any]()
+                    for (i <- 1 to columns) {
+                        row += meta.getColumnLabel(i) -> rs.getObject(i)
+                    }
+                    mapList += row.toMap
+                }
+                if (config.dbType != DBType.Presto) {
+                    rs.getStatement.close()
+                }
+                rs.close()
+            case None =>
+        }
+
+        mapList.toList
+    }
+
     def executeDataList(SQL: String, values: Any*): ArrayBuffer[ArrayBuffer[String]] = {
         var list = new ArrayBuffer[ArrayBuffer[String]]
         this.executeResultSet(SQL, values: _*) match {
@@ -188,7 +237,7 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
                     }
                     list += row
                 }
-                if (!connectionName.startsWith("presto.")) {
+                if (config.dbType != DBType.Presto) {
                     rs.getStatement.close()
                 }
                 rs.close()
@@ -207,7 +256,7 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
                     for (i <- 1 to columns) {
                         row.set(meta.getColumnLabel(i), rs.getObject(i))
                     }
-                    if (!connectionName.startsWith("presto.")) {
+                    if (config.dbType != DBType.Presto) {
                         rs.getStatement.close()
                     }
                     rs.close()
@@ -215,6 +264,27 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
             case None =>
         }
         row
+    }
+
+    def executeHashMap(SQL: String, values: Any*): mutable.HashMap[String, String] = {
+        val map = new mutable.HashMap[String, String]()
+        this.executeResultSet(SQL, values: _*) match {
+            case Some(rs) =>
+                try {
+                    while (rs.next) {
+                        map += (rs.getString(1) -> rs.getString(2))
+                    }
+                    if (config.dbType != DBType.Presto) {
+                        rs.getStatement.close()
+                    }
+                    rs.close()
+                } catch {
+                    case e: SQLException => e.printStackTrace()
+                }
+            case None =>
+        }
+
+        map
     }
     
     def executeSingleList(SQL: String, values: Any*): List[String] = {
@@ -224,7 +294,7 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
                 while (rs.next) {
                     list += rs.getString(1)
                 }
-                if (!connectionName.startsWith("presto.")) {
+                if (config.dbType != DBType.Presto) {
                     rs.getStatement.close()
                 }
                 rs.close()
@@ -239,7 +309,7 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
             case Some(rs) =>
                 if (rs.next()) {
                     value = Some(rs.getString(1))
-                    if (!connectionName.startsWith("presto.")) {
+                    if (config.dbType != DBType.Presto) {
                         rs.getStatement.close()
                     }
                     rs.close()
@@ -255,7 +325,7 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
             case Some(rs) =>
                 if (rs.next()) {
                     result = true
-                    if (!connectionName.startsWith("presto.")) {
+                    if (config.dbType != DBType.Presto) {
                         rs.getStatement.close()
                     }
                     rs.close()
@@ -296,7 +366,7 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
 
     def executeNonQuery(SQL: String, values: Any*): Int = {
         this.openIfNot()
-        
+
         this.connection match {
             case Some(conn) =>
                 var row: Int = -1
@@ -321,14 +391,14 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
     }
 
     // ---------- batch update ----------
-    
+
     def addBatchCommand(SQL: String): Unit = {
         this.batchSQLs += trimSQL(SQL)
     }
-    
+
     def executeBatchCommands(): Int = {
         this.openIfNot()
-    
+
         this.connection match {
             case Some(conn) =>
                 var count = 0
@@ -353,34 +423,34 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
                     //}
                     this.batchSQLs.clear()
                 }
-                
+
                 count
             case None => 0
         }
     }
-    
+
     def setBatchCommand(SQL: String): Unit = {
         if (this.batchSQLs.nonEmpty) {
             this.batchSQLs.clear()
         }
         this.batchSQLs += trimSQL(SQL)
     }
-    
+
     def addBatch(values: Any*): Unit = {
         this.batchValues += values.toVector
     }
-    
+
     def addBatch(values: List[Any]): Unit = {
         this.batchValues += values.toVector
     }
-    
+
     def addBatch(values: Vector[Any]): Unit = {
         this.batchValues += values
     }
-    
+
     def executeBatchUpdate(commitOnExecute: Boolean = true): Int = {
         this.openIfNot()
-        
+
         this.connection match {
             case Some(conn) =>
                 var count: Int = 0
@@ -394,7 +464,7 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
                                     prest.setObject(i + 1, values(i))
                                 }
                                 prest.addBatch()
-            
+
                                 count += 1
                                 if (count % 1000 == 0) {
                                     prest.executeBatch
@@ -417,15 +487,15 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
                     }
                     this.batchSQLs.clear()
                 }
-                
+
                 count
-                
+
             case None => 0
         }
     }
-    
+
     def executeBatchInsert(batchSize: Int = 1000): Int = {
-        
+
         var count: Int = 0
         if (this.batchSQLs.nonEmpty && this.batchValues.nonEmpty) {
             var location: Int = 0
@@ -438,7 +508,7 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
             else {
                 baseSQL = batchSQL + " VALUES "
             }
-            
+
             var rows = new ArrayBuffer[String]
             var v: String = ""
             var vs: String = ""
@@ -456,7 +526,7 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
                 }
                 vs += "')"
                 rows += vs
-                
+
                 if (rows.size >= batchSize) {
                     count += this.executeNonQuery(baseSQL + rows.mkString(","))
                     rows.clear()
@@ -469,13 +539,13 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
             this.batchValues.clear()
             this.batchSQLs.clear()
         }
-        
+
         count
     }
-    
+
     def tableSelect(SQL: String, table: DataTable): DataTable = {
         val result = DataTable()
-    
+
         if (SQL.contains("?")) {
             table.foreach(row => {
                 result.merge(this.executeDataTable(SQL, row.getValues: _*))
@@ -492,13 +562,13 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
                 result.merge(this.executeDataTable(SQL))
             }
         }
-        
+
         result
     }
-    
+
     def tableUpdate(SQL: String, table: DataTable): Long = {
         var count = -1
-        
+
         if (table.nonEmpty) {
             if (SQL.contains("?")) {
                 this.setBatchCommand(SQL)
@@ -523,17 +593,17 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
 
         count
     }
-    
+
     def tableInsert(SQL: String, table: DataTable): Long = {
         tableUpdate(SQL, table)
     }
-    
+
     def tableDelete(SQL: String, table: DataTable): Long = {
         tableUpdate(SQL, table)
     }
-    
+
     // ---------- storeproceure ----------
-    
+
     // {call storedprocedure(?,?)}
     def processUpdate(storedProcedure: String, values: Any*): Int = {
         var row: Int = -1
@@ -547,32 +617,32 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
         //} catch {
             //case e: SQLException => e.printStackTrace()
         //}
-        
+
         row
     }
-    
+
     def processResult(storedProcedure: String, values: Any*): Unit = {
-    
+
     }
-    
+
     // --------- other ----------
-    
+
     def getIdleTime: Long = {
         this.tick match {
             case -1 => -1L
             case _ => System.currentTimeMillis - this.tick
         }
     }
-    
+
     def openIfNot(): Unit = {
         try {
             var retry = 0
             //idle 10s
-            if (this.isMySQL && this.getIdleTime >= 10000) {
+            if (config.overtime > 0 && this.getIdleTime >= config.overtime) {
                 this.close()
             }
             if (this.tick == -1 || this.connection.get.isClosed) {
-                while (this.connection.isEmpty && retry < 100) {
+                while (this.connection.isEmpty && retry < config.retryLimit) {
                     this.open()
                     if (this.connection.isEmpty) {
                         Timer.sleep(1F)

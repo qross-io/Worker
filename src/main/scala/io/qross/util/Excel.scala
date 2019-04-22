@@ -18,7 +18,7 @@ import scala.util.control.Breaks._
 object Excel {
     def main(args: Array[String]): Unit = {
 
-        val dh = new DataHub()
+        val dh = new DataSet()
 
         dh.saveAsNewExcel("d:/test.xlsx")
             .writeCellValue("2018年09月05日催收公司信息", "催收公司详情")

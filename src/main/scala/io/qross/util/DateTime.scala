@@ -266,7 +266,7 @@ case class DateTime(private var dateTime: String = "", private var formatStyle: 
     def afterOrEquals(otherDateTime: DateTime): Boolean = this.localDateTime.isAfter(otherDateTime.localDateTime) || this.localDateTime.isEqual(otherDateTime.localDateTime)
     
     def copy(): DateTime = {
-        DateTime(this.getString("yyyyMMddHHmmss"))
+        DateTime(this.getString("yyyy-MM-dd HH:mm:ss.SSS"))
     }
     
     def copy(dateTime: DateTime): Unit = {
@@ -410,64 +410,39 @@ case class DateTime(private var dateTime: String = "", private var formatStyle: 
     //DateTime1.to(DateTime2): List[DateTime].filter(): List[DateTime].format(): List[String].join(): String
     //set = express(): DateTime.format(): String
     //format(): String
-    
-    def sharp(expression: String): List[String] = {
+
+    def shark(expression: String): List[String] = {
         //semi-value
         var semi = expression.trim.replace("->", "FORMAT")
-        
-        var FORMAT: String = ""
-        var FILTER: String = ""
+
         var FROM: String = ""
         var TO: String = ""
-        var SET: String = ""
-        var JOIN: String = ""
-    
-        //JOIN
-        if (semi.toUpperCase().contains("JOIN")) {
-            JOIN = semi.substring(semi.toUpperCase().indexOf("WITH") + 4).trim
-            semi = semi.substring(0, semi.toUpperCase().indexOf("JOIN")).trim
-            
-            if ((JOIN.startsWith("'") && JOIN.endsWith("'")) || (JOIN.startsWith("\"") && JOIN.endsWith("\""))) {
-                JOIN = JOIN.drop(1).dropRight(1)
-            }
-        }
-        
+        var FILTER: String = ""
+        var FORMAT: String = "yyyy-MM-dd HH:mm:ss"
+
         //FORMAT
         if (semi.toUpperCase().contains("FORMAT")) {
             FORMAT = semi.substring(semi.toUpperCase().indexOf("FORMAT") + 6).trim
             semi = semi.substring(0, semi.toUpperCase().indexOf("FORMAT")).trim
         }
-        else {
-            FORMAT = ""
-        }
-        
+
         semi = semi.toUpperCase()
-        
+
         //FILTER
-        if (semi.nonEmpty) {
-            if (semi.contains("FILTER")) {
-                FILTER = semi.substring(semi.indexOf("FILTER") + 6).trim
-                semi = semi.substring(0, semi.indexOf("FILTER")).trim
-            }
+        if (semi.contains("FILTER")) {
+            FILTER = semi.substring(semi.indexOf("FILTER") + 6).trim
+            semi = semi.substring(0, semi.indexOf("FILTER")).trim
         }
-        
+
         //TO
-        if (semi.nonEmpty) {
-            if (semi.contains("TO")) {
-                FROM = semi.substring(0, semi.indexOf("TO")).trim
-                TO = semi.substring(semi.indexOf("TO") + 2).trim
-                if (FROM.startsWith("FROM")) {
-                    FROM = FROM.drop(4).trim
-                }
-            }
-            else {
-                SET = semi.trim
-                if (SET.startsWith("SET")) {
-                    SET = SET.drop(3).trim
-                }
+        if (semi.contains("TO")) {
+            FROM = semi.substring(0, semi.indexOf("TO")).trim
+            TO = semi.substring(semi.indexOf("TO") + 2).trim
+            if (FROM.startsWith("FROM")) {
+                FROM = FROM.drop(4).trim
             }
         }
-        
+
         if (FROM.nonEmpty && TO.nonEmpty) {
             val STEP =
                 if (FORMAT.contains("s")) {
@@ -491,35 +466,64 @@ case class DateTime(private var dateTime: String = "", private var formatStyle: 
                 else {
                     ChronoUnit.DAYS
                 }
-            
-            val dateTimeList = this.shape(FROM, TO, STEP, FILTER)
-            
-            if (FORMAT.nonEmpty) {
-                val strList = dateTimeList.map(dateTime => dateTime.format(FORMAT))
-                if (JOIN.nonEmpty) {
-                    List(strList.mkString(JOIN))
+
+            this.shape(FROM, TO, STEP, FILTER).map(dateTime => {
+                if (FORMAT.nonEmpty) {
+                    dateTime.format(FORMAT)
                 }
                 else {
-                    strList
+                    dateTime.toString
                 }
-            }
-            else {
-                dateTimeList.map(dateTime => dateTime.toString)
-            }
+            })
         }
         else {
-            if (SET.nonEmpty) this.express(SET)
-            if (FORMAT.nonEmpty) {
-                List(this.format(FORMAT))
+            //return empty if format is incorrect.
+            List(sharp(expression))
+        }
+    }
+
+    def sharp(expression: String): String = {
+        //semi-value
+        var semi = expression.trim.replace("->", "FORMAT")
+
+        if (Pattern.compile("\\sTO\\s", Pattern.CASE_INSENSITIVE).matcher(semi).find()) {
+            shark(semi).mkString(",")
+        }
+        else {
+            var FORMAT: String = "yyyy-MM-dd HH:mm:ss"
+            var SET: String = ""
+
+            //FORMAT
+            if (semi.toUpperCase().contains("FORMAT")) {
+                FORMAT = semi.substring(semi.toUpperCase().indexOf("FORMAT") + 6).trim
+                semi = semi.substring(0, semi.toUpperCase().indexOf("FORMAT")).trim
             }
             else {
-                List(this.toString)
+                FORMAT = semi
+                semi = ""
+            }
+
+            semi = semi.toUpperCase()
+
+            SET = semi.trim
+            if (SET.startsWith("SET")) {
+                SET = SET.drop(3).trim
+            }
+
+            if (SET.nonEmpty) {
+                this.express(SET)
+            }
+            if (FORMAT.nonEmpty) {
+                this.format(FORMAT)
+            }
+            else {
+                this.toString
             }
         }
     }
     
     override def equals(other: Any): Boolean = {
-        this.getString("yyyyMMddHHmmss") == other.asInstanceOf[DateTime].getString("yyyyMMddHHmmss")
+        this.getString("yyyyMMddHHmmssSSS") == other.asInstanceOf[DateTime].getString("yyyyMMddHHmmssSSS")
     }
     
     override def toString: String = {
