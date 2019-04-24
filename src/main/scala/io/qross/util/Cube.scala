@@ -16,22 +16,26 @@ class Cube(max: Int = -1) {
         this.value = this.max
     }
 
-    def isAchieved: Boolean = this.value >= this.max
+    def achieved: Boolean = this.value >= this.max
 
-    def close(): Unit = synchronized {
+
+    def reset(): Unit = synchronized {
         this.value = -1
     }
 
+    //活跃线程+1
     def mark(): Unit = synchronized {
         this.threads += 1
     }
 
+    //活跃线程-1
     def wipe(): Unit = synchronized {
         this.threads -= 1
-        if (this.threads == 0) {
-            this.value = -1
-        }
     }
 
-    def isClosed: Boolean = this.value == -1 && this.threads == 0
+    //获取活跃线程数量
+    def active: Int = this.threads
+
+    //是否所有线程已经退出
+    def closed: Boolean = this.threads == 0
 }

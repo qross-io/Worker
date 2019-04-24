@@ -1,5 +1,8 @@
 package io.qross.util
 
+import io.qross.core.DataRow
+import io.qross.jdbc.DataType
+
 import scala.collection.mutable
 
 case class Parameter(private val SQL: String) {

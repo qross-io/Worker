@@ -2,6 +2,8 @@ package io.qross.util
 
 import java.io._
 
+import io.qross.jdbc.{DataSource, JDBC}
+
 object Properties {
 
     /*
@@ -20,13 +22,13 @@ object Properties {
     */
 
     private val props = new java.util.Properties()
-    private val externalPath = new File(PropertiesK.getClass.getProtectionDomain.getCodeSource.getLocation.getPath).getParentFile.getAbsolutePath.replace("\\", "/")
+    private val externalPath = new File(Properties.getClass.getProtectionDomain.getCodeSource.getLocation.getPath).getParentFile.getAbsolutePath.replace("\\", "/")
 
     loadLocalFile(externalPath + "/qross.properties")
     loadLocalFile(externalPath + "/dbs.properties")
     loadResourcesFile("/conf.properties")
 
-    if (contains(JDBC.QROSS)) {
+    if (JDBC.hasQrossSystem) {
         loadPropertiesAndConnections()
     }
 
@@ -52,7 +54,7 @@ object Properties {
 
     def loadResourcesFile(path: String): Unit = {
         try {
-            props.load(new BufferedReader(new InputStreamReader(PropertiesK.getClass.getResourceAsStream(path))))
+            props.load(new BufferedReader(new InputStreamReader(Properties.getClass.getResourceAsStream(path))))
         }
         catch {
             case _ : Exception =>
@@ -88,8 +90,5 @@ object Properties {
                         }).clear()
 
         ds.close()
-
-        //加载数据库中的连接串
-        //props.setProperty()
     }
 }
