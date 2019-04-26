@@ -1,33 +1,20 @@
 package io.qross.psql
 
-import java.util
-import java.util.{HashMap, List, Map}
-import java.util.regex.{Matcher, Pattern}
+import java.util.regex.Matcher
 
 import io.qross.core.DataCell
 import io.qross.jdbc.DataSource
-import io.qross.util.{Console, DataCell, Timer}
+import io.qross.util.TypeExt._
+import io.qross.util.{Output, Timer}
+import io.qross.psql.Patterns._
 
-import scala.util.control.Breaks._
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
+import scala.util.control.Breaks._
 
-class PSQL(val SQL: String) {
+class PSQL(var SQL: String) {
 
-    private val $SET = Pattern.compile("^SET\\s+(\\$\\{?[a-z_][a-z0-9_]*}?(\\s*,\\s*\\$\\{?[a-z_][a-z0-9_]*}?)*\\s*):=", Pattern.CASE_INSENSITIVE)
-    private val $NAME = Pattern.compile("^([a-z][a-z0-9_#]*)?\\s*:", Pattern.CASE_INSENSITIVE)
-    private val $TRY = Pattern.compile("^TRY\\s+(.+?)\\s+?@", Pattern.CASE_INSENSITIVE)
-    private val $IF = Pattern.compile("^IF\\s+(.+?)\\s+THEN", Pattern.CASE_INSENSITIVE)
-    private val $ELSE_IF = Pattern.compile("^ELSE? ?IF\\s+(.+?)\\s+THEN", Pattern.CASE_INSENSITIVE)
-    private val $ELSE = Pattern.compile("^ELSE", Pattern.CASE_INSENSITIVE)
-    private val $END_IF = Pattern.compile("""^END\s*IF""", Pattern.CASE_INSENSITIVE)
-    private val $FOR$SELECT = Pattern.compile("^FOR\\s+(.+?)\\s+IN\\s+(SELECT\\s+.+)\\s+LOOP", Pattern.CASE_INSENSITIVE)
-    private val $FOR$TO = Pattern.compile("^FOR\\s+(.+?)\\s+IN\\s+(.+?)\\s+TO\\s+(.+)\\s+LOOP", Pattern.CASE_INSENSITIVE)
-    private val $FOR$IN = Pattern.compile("^FOR\\s+(.+?)\\s+IN\\s+(.+?)(\\s+DELIMITED\\s+BY\\s+(.+))?\\s+LOOP", Pattern.CASE_INSENSITIVE)
-    private val $WHILE = Pattern.compile("^WHILE\\s+(.+)\\s+LOOP", Pattern.CASE_INSENSITIVE)
-    private val $END_LOOP = Pattern.compile("^END\\s*LOOP", Pattern.CASE_INSENSITIVE)
-    private val $SPACE = Pattern.compile("""\s""")
-
-    val CAPTIONS = Set[String]("INSERT", "UPDATE", "DELETE", "CREATE")
+    private val CAPTIONS = Set[String]("INSERT", "UPDATE", "DELETE", "CREATE")
 
     var params = ""
     var cacheName = ""
@@ -42,7 +29,7 @@ class PSQL(val SQL: String) {
     //返回类型
     private var resultType: String = "list"
     //结果集
-    private val ALL = new mutable.LinkedHashMap[String, AnyRef]()
+    private val ALL = new mutable.LinkedHashMap[String, Any]()
 
     //正在解析的控制语句
     private val PARSING = new mutable.ArrayStack[Statement]
@@ -83,7 +70,7 @@ class PSQL(val SQL: String) {
 
         if ( {m = $IF.matcher(SQL); m}.find) {
             val $if: Statement = this.createStatement("IF", m.group(0), m.group(1))
-            $if.isClosed = false
+            $if.closed = false
             PARSING.last.addStatement($if)
 
             //只进栈
@@ -123,7 +110,7 @@ class PSQL(val SQL: String) {
             if (TO_BE_CLOSE.isEmpty) throw new SQLParserException("Can't find IF clause: " + m.group)
             else if (!(TO_BE_CLOSE.last.caption == "IF")) throw new SQLParserException(TO_BE_CLOSE.last.caption + " hasn't closed: " + TO_BE_CLOSE.last.sentence)
             else {
-                TO_BE_CLOSE.last.isClosed = true
+                TO_BE_CLOSE.last.closed = true
                 TO_BE_CLOSE.pop()
             }
             val $endIf: Statement = this.createStatement("END_IF", m.group(0))
@@ -133,7 +120,7 @@ class PSQL(val SQL: String) {
         }
         else if ({m = $FOR$SELECT.matcher(SQL); m}.find) {
             val $for$select: Statement = this.createStatement("FOR_SELECT", m.group(0), m.group(1).trim, m.group(2).trim)
-            $for$select.isClosed = false
+            $for$select.closed = false
             PARSING.last.addStatement($for$select)
             //只进栈
             PARSING.push($for$select)
@@ -144,7 +131,7 @@ class PSQL(val SQL: String) {
         }
         else if ({m = $FOR$TO.matcher(SQL); m}.find) {
             val $for$to: Statement = this.createStatement("FOR_TO", m.group(0), m.group(1).trim(), m.group(2).trim(), m.group(3).trim())
-            $for$to.isClosed = false
+            $for$to.closed = false
             PARSING.last.addStatement($for$to)
 
             //只进栈
@@ -162,7 +149,7 @@ class PSQL(val SQL: String) {
                 else {
                     ","
                 }).trim)
-            $for.isClosed = false
+            $for.closed = false
             PARSING.last.addStatement($for)
             //只进栈
             PARSING.push($for)
@@ -173,7 +160,7 @@ class PSQL(val SQL: String) {
         }
         else if ({m = $WHILE.matcher(SQL); m}.find) {
             val $while: Statement = this.createStatement("WHILE", m.group(0), m.group(1).trim)
-            $while.isClosed = false
+            $while.closed = false
             PARSING.last.addStatement($while)
             //只进栈
             PARSING.push($while)
@@ -191,7 +178,7 @@ class PSQL(val SQL: String) {
                 throw new SQLParserException(TO_BE_CLOSE.last.caption + " hasn't closed: " + TO_BE_CLOSE.last.sentence)
             }
             else {
-                TO_BE_CLOSE.last.isClosed = true
+                TO_BE_CLOSE.last.closed = true
                 TO_BE_CLOSE.pop()
             }
             val $endLoop: Statement = this.createStatement("END_LOOP", m.group(0))
@@ -268,7 +255,7 @@ class PSQL(val SQL: String) {
         found
     }
 
-    def findVariableValue(field: String): Option[DataCell] = {
+    def findVariableValue(field: String): DataCell = {
 
         var result: Option[DataCell] = None
 
@@ -292,10 +279,10 @@ class PSQL(val SQL: String) {
             }
         }
 
-        result
+        result.getOrElse(null)
     }
 
-    private def execute(statements: List[Statement]): Unit = {
+    private def execute(statements: ArrayBuffer[Statement]): Unit = {
 
         for (statement <- statements) {
             statement.caption match {
@@ -305,88 +292,84 @@ class PSQL(val SQL: String) {
                         EXECUTING.push(statement)
                         this.execute(statement.statements)
                     }
-                    else IF_BRANCHES.push(false)
-                    break //todo: break is not supported
+                    else {
+                        IF_BRANCHES.push(false)
+                    }
                 case "ELSE_IF" =>
-                    if (!IF_BRANCHES.lastElement) if (statement.instance.asInstanceOf[IfElse].conditionGroup.evalAll(this.ds)) { //替换
-                        IF_BRANCHES.pop
-                        IF_BRANCHES.push(true)
-                        EXECUTING.push(statement)
-                        this.execute(statement.statements)
+                    if (!IF_BRANCHES.last) {
+                        if (statement.instance.asInstanceOf[IfElse].conditionGroup.evalAll(this.ds)) { //替换
+                            IF_BRANCHES.pop()
+                            IF_BRANCHES.push(true)
+                            EXECUTING.push(statement)
+
+                            this.execute(statement.statements)
+                        }
                     }
-                    break //todo: break is not supported
                 case "ELSE" =>
-                    if (!IF_BRANCHES.lastElement) {
-                        IF_BRANCHES.pop
+                    if (!IF_BRANCHES.last) {
+                        IF_BRANCHES.pop()
                         IF_BRANCHES.push(true)
                         EXECUTING.push(statement)
+
                         this.execute(statement.statements)
                     }
-                    break //todo: break is not supported
                 case "END_IF" =>
                     //结束本次IF语句
-                    if (IF_BRANCHES.lastElement) { //在IF成功时才会有语句块进行栈
-                        EXECUTING.pop
+                    if (IF_BRANCHES.last) { //在IF成功时才会有语句块进行栈
+                        EXECUTING.pop()
                     }
-                    IF_BRANCHES.pop
-                    break //todo: break is not supported
+                    IF_BRANCHES.pop()
                 case "FOR_SELECT" =>
                     val selectMap: ForLoopVariables = statement.instance.asInstanceOf[ForSelectLoop].computeMap(this.ds)
                     //FOR_VARIABLES（入栈）
                     FOR_VARIABLES.push(selectMap)
                     EXECUTING.push(statement)
                     //根据loopMap遍历
-                    while ( {
-                        selectMap.hasNext
-                    }) this.execute(statement.statements)
-                    break //todo: break is not supported
+                    while (selectMap.hasNext) {
+                        this.execute(statement.statements)
+                    }
                 case "FOR_TO" =>
                     val toLoop: ForToLoop = statement.instance.asInstanceOf[ForToLoop]
                     this.updateVariableValue(toLoop.variable, toLoop.parseBegin)
                     EXECUTING.push(statement)
-                    while ( {
-                        toLoop.hasNext
-                    }) {
+                    while (toLoop.hasNext) {
                         this.execute(statement.statements)
-                        this.updateVariableValue(toLoop.variable, Integer.valueOf(this.findVariableValue(toLoop.variable).value.asInstanceOf[String]) + 1)
+                        this.updateVariableValue(toLoop.variable, this.findVariableValue(toLoop.variable).value.asInstanceOf[String].toInt + 1)
                     }
-                    break //todo: break is not supported
                 case "FOR_IN" =>
-                    val inMap: ForLoopVariables = statement.instance.asInstanceOf[ForInLoop].computeMap
+                    val inMap: ForLoopVariables = statement.instance.asInstanceOf[ForInLoop].computeMap()
                     FOR_VARIABLES.push(inMap)
                     EXECUTING.push(statement)
-                    while ( {
-                        inMap.hasNext
-                    }) this.execute(statement.statements)
-                    break //todo: break is not supported
+                    while (inMap.hasNext) {
+                        this.execute(statement.statements)
+                    }
                 case "WHILE" =>
                     val whileLoop: WhileLoop = statement.instance.asInstanceOf[WhileLoop]
                     EXECUTING.push(statement)
-                    while ( {
-                        whileLoop.conditionGroup.evalAll(this.ds)
-                    }) this.execute(statement.statements)
-                    break //todo: break is not supported
+                    while (whileLoop.conditionGroup.evalAll(this.ds)) {
+                        this.execute(statement.statements)
+                    }
                 case "END_LOOP" =>
-                    if ("FOR_SELECT,FOR_IN".contains(EXECUTING.lastElement.caption)) FOR_VARIABLES.pop
-                    EXECUTING.pop
-                    break //todo: break is not supported
+                    if (Set("FOR_SELECT", "FOR_IN").contains(EXECUTING.last.caption)) {
+                        FOR_VARIABLES.pop()
+                    }
+                    EXECUTING.pop()
                 //赋值语句
                 case "SET" =>
                     statement.instance.asInstanceOf[SetVariable].assign(this.ds)
-                    break //todo: break is not supported
                 //执行语句
                 case _ =>
                     val query: QuerySentence = statement.instance.asInstanceOf[QuerySentence]
                     //执行语句的功能不能放到子对象QuerySentence中，返回类型不好处理
                     val sentence: String = statement.parseQuerySentence(query.sentence)
-                    Console.writeLine(sentence)
+
+                    Output.writeLine(sentence)
+
                     if (statement.caption == "SELECT") {
-                        var rows: util.List[util.Map[String, AnyRef]] = ds.executeMapList(sentence)
-                        if (rows.size == 0 && query.retry > -1) {
+                        var rows = ds.executeMapList(sentence)
+                        if (rows.isEmpty && query.retryLimit > -1) {
                             var retry: Int = 0
-                            while ( {
-                                rows.size == 0 && (query.retry == 0 || retry < query.retry)
-                            }) {
+                            while (rows.isEmpty && (query.retryLimit == 0 || retry < query.retryLimit)) {
                                 Timer.sleep(0.1F)
                                 retry += 1
                                 rows = this.ds.executeMapList(sentence)
@@ -394,54 +377,161 @@ class PSQL(val SQL: String) {
                         }
                         this.resultType match {
                             case "all" =>
-                                if (!query.name.isEmpty) if (query.resultType.equalsIgnoreCase("single")) if (rows.size > 0 && rows.get(0).size > 0) {
-                                        import scala.collection.JavaConversions._
-                                        for (key <- rows.get(0).keySet) {
-                                            ALL.put(query.name, rows.get(0).get(key))
-                                            break //todo: break is not supported
+                                if (!query.name.isEmpty) {
+                                    if (query.resultType.equalsIgnoreCase("single")) if (rows.nonEmpty && rows.head.nonEmpty) {
+
+                                        for (key <- rows.head.keySet) {
+                                            ALL.put(query.name, rows.head.get(key))
                                         }
                                     }
-                                    else ALL.put(query.name, "")
-                                else if (query.resultType.equalsIgnoreCase("map")) ALL.put(query.name, if (rows.size > 0) rows.get(0)
-                                        else new HashMap[AnyRef, AnyRef])
-                                    else ALL.put(query.name, rows) //list
-                                break //todo: break is not supported
-                            case "list" =>
-                                ALL.put("list", rows)
-                                break //todo: break is not supported
-                            case "map" =>
-                                ALL.put("map", if (rows.size > 0) rows.get(0)
-                                else new HashMap[AnyRef, AnyRef])
-                                break //todo: break is not supported
-                            case "single" =>
-                                if (rows.size > 0 && rows.get(0).size > 0) {
-                                    import scala.collection.JavaConversions._
-                                    for (key <- rows.get(0).keySet) {
-                                        ALL.put("single", rows.get(0).get(key))
-                                        break //todo: break is not supported
+                                    else {
+                                        ALL.put(query.name, "")
                                     }
                                 }
-                                else ALL.put("single", "")
-                                break //todo: break is not supported
+                                else if (query.resultType.equalsIgnoreCase("map")) {
+                                    ALL.put(query.name,
+                                        if (rows.nonEmpty) {
+                                            rows.head
+                                        }
+                                        else {
+                                            Map[String, Any]()
+                                        })
+                                }
+                                else {
+                                    ALL.put(query.name, rows)
+                                }
+                            case "list" =>
+                                ALL.put("list", rows)
+                            case "map" =>
+                                ALL.put("map",
+                                    if (rows.nonEmpty) {
+                                        rows.head
+                                    }
+                                    else {
+                                        Map[String, Any]()
+                                    })
+                            case "single" =>
+                                if (rows.nonEmpty && rows.head.nonEmpty) {
+                                    for (key <- rows.head.keySet) {
+                                        ALL.put("single", rows.head.get(key))
+                                    }
+                                }
+                                else {
+                                    ALL.put("single", "")
+                                }
                         }
                     }
                     else {
-                        var affected: Int = this.ds.executeUpdate(sentence)
-                        if (affected == 0 && query.retry > -1) {
+                        var affected: Int = this.ds.executeNonQuery(sentence)
+                        if (affected == 0 && query.retryLimit > -1) {
                             var retry: Int = 0
-                            while ( {
-                                affected == 0 && (query.retry == 0 || retry < query.retry)
-                            }) {
+                            while (affected == 0 && (query.retryLimit == 0 || retry < query.retryLimit)) {
                                 Timer.sleep(0.1F)
                                 retry += 1
-                                affected = this.ds.executeUpdate(sentence)
+                                affected = this.ds.executeNonQuery(sentence)
                             }
                         }
-                        if (this.resultType == "none") ALL.put("none", affected)
-                        else if (!query.name.isEmpty) ALL.put(query.name, affected)
+                        if (this.resultType == "none") {
+                            ALL.put("none", affected)
+                        }
+                        else if (!query.name.isEmpty) {
+                            ALL.put(query.name, affected)
+                        }
                     }
-                    break //todo: break is not supported
             }
         }
+    }
+
+    def parse(SQL: String) = new PSQL(SQL)
+
+    def $with(params: Map[String, Array[String]], defaultValue: String = ""): PSQL = {
+
+        for (paramName <- params.keySet) {
+            val paramValue = params(paramName)(0)
+            //            try {
+            //                paramValue = URLDecoder.decode(paramValue, "utf-8");
+            //            } catch (UnsupportedEncodingException e) {
+            //                e.printStackTrace();
+            //            }
+            if (this.SQL.contains("#{" + paramName + "}")) {
+                if (this.params != "") {
+                    this.params += "&"
+                }
+                this.params += paramName + "=" + paramValue
+                this.SQL = this.SQL.replace("#{" + paramName + "}", paramValue)
+            }
+        }
+        if (this.SQL.contains("#{")) {
+            if (defaultValue.nonEmpty) {
+                for ((paramName, paramValue) <- defaultValue.toHashMap()) {
+                    this.SQL = this.SQL.replace("#{" + paramName + "}", paramValue)
+                }
+            }
+        }
+        this
+    }
+
+    def $with(params: Map[String, String]): PSQL = {
+
+        for ((paramName, paramValue) <- params) {
+            if (this.SQL.contains("#{" + paramName + "}")) {
+                if (!(this.params == "")) this.params += "&"
+                this.params += paramName + "=" + paramValue
+                this.SQL = this.SQL.replace("#{" + paramName + "}", paramValue)
+            }
+        }
+        this
+    }
+
+    def cache(name: String, cacheEnabled: Boolean): PSQL = {
+        this.cacheName = name
+        this.cacheEnabled = cacheEnabled
+        this
+    }
+
+    def set(globalVariableName: String, value: String): PSQL = {
+        root.setVariable(globalVariableName, value)
+        this
+    }
+
+    def executeOn(ds: DataSource): PSQL = {
+        this.ds = ds
+        this
+    }
+
+    def andReturn(resultType: String): Any = {
+        if (this.cacheEnabled && CACHE.contains(this.cacheName, this.params)) {
+            Output.writeLine("# FROM CACHE # " + this.SQL)
+            CACHE.get(this.cacheName, this.params)
+        }
+        else {
+            this.parse()
+            Output.writeLine("# FROM DATASOURCE # " + this.SQL)
+            //execute
+            this.resultType = resultType.toLowerCase
+            EXECUTING.push(root)
+            this.execute(root.statements)
+            ds.close()
+            if (this.resultType == "all") {
+                if (cacheEnabled) {
+                    CACHE.set(cacheName, params, ALL)
+                }
+                ALL
+            }
+            else {
+                if (cacheEnabled) {
+                    CACHE.set(cacheName, params, ALL.get(this.resultType))
+                }
+                ALL.get(this.resultType)
+            }
+        }
+    }
+
+    def show(): Unit = {
+        for (i <- this.sentences.indices) {
+            Output.writeLine(i, ": ", this.sentences(i))
+        }
+        Output.writeLine("------------------------------------------------------------")
+        this.root.show(0)
     }
 }

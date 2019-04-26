@@ -31,8 +31,8 @@ object JDBC {
                 DBType.Hive -> "org.apache.hive.jdbc.HiveDriver",
                 DBType.Oracle -> "oracle.jdbc.driver.OracleDriver",
                 DBType.Impala -> "org.apache.hive.jdbc.HiveDriver,com.cloudera.impala.jdbc4.Driver",
-                DBType.SQLServer -> "com.microsoft.sqlserver.jdbc.SQLServerDriver"),
-                DBType.Memory -> "org.sqlite.JDBC"
+                DBType.SQLServer -> "com.microsoft.sqlserver.jdbc.SQLServerDriver",
+                DBType.Memory -> "org.sqlite.JDBC")
 
     //已保存的数据库连接信息
     val connections = new mutable.HashMap[String, JDBC]()

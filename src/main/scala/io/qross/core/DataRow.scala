@@ -95,12 +95,11 @@ case class DataRow(private val items: (String, Any)*) {
             new DataCell(this.columns(fieldName), this.fields(fieldName))
         }
         else {
-            null
+            new DataCell(null)
         }
     }
 
     def getString(fieldName: String, defaultValue: String = ""): String = getStringOption(fieldName).getOrElse(defaultValue)
-    def getString(index: Int, defaultValue: String = ""): String = getStringOption(index).getOrElse(defaultValue)
     def getStringOption(fieldNameOrIndex: Any): Option[String] = {
         {
             if (fieldNameOrIndex.isInstanceOf[Int]) {

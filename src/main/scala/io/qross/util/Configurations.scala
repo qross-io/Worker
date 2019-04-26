@@ -1,7 +1,7 @@
 package io.qross.util
 
 import io.qross.core.DataRow
-import io.qross.jdbc.JDBC
+import io.qross.jdbc.{DataSource, JDBC}
 
 object Configurations {
 

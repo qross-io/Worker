@@ -1,19 +1,13 @@
 package io.qross.util
 
 
-import java.io.BufferedReader
-import java.io.FileInputStream
-import java.io.IOException
-import java.io.InputStream
-import java.io.InputStreamReader
+import java.io.{IOException, InputStream}
 import java.util.Scanner
 import java.util.zip.GZIPInputStream
 
-import io.qross.model.Global
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.FileSystem
-import org.apache.hadoop.fs.Path
+import org.apache.hadoop.fs.{FileSystem, Path}
 
 class HDFSReader(path: String) {
     

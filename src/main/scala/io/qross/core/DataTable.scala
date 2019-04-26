@@ -1,9 +1,8 @@
 package io.qross.core
 
-import io.qross.jdbc.{DataSource, DataType}
 import io.qross.jdbc.DataType.DataType
+import io.qross.jdbc.{DataSource, DataType}
 import io.qross.util.Output._
-import io.qross.util.DataType
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable

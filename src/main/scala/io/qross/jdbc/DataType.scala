@@ -10,7 +10,7 @@ object DataType extends Enumeration {
     val DECIMAL: DataType = Value("REAL")
     val TEXT: DataType = Value("TEXT")
     val BLOB: DataType = Value("BLOB")
-    val None: DataType = Value("None")
+    val NULL: DataType = Value("NULL")
     //val NUMBER: DataType = Value("REAL")
     
     def ofClassName(value: String): DataType = {

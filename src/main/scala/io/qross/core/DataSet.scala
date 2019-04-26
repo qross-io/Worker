@@ -293,7 +293,7 @@ class DataSet(defaultSourceName: String = DataSource.DEFAULT) {
     }
 
     def mkString(fieldName: String, delimiter: String = ","): String = {
-        TABLE.mkString(fieldName);
+        TABLE.mkString(fieldName, delimiter);
     }
 
     def foreach(callback: (DataRow) => Unit): DataSet = {

@@ -20,27 +20,6 @@ import scala.util.control.Breaks._
 
 
 object Excel {
-    def main(args: Array[String]): Unit = {
-
-        val dh = new DataSet()
-
-        dh.saveAsNewExcel("d:/test.xlsx")
-            .writeCellValue("2018年09月05日催收公司信息", "催收公司详情")
-                .mergeCells(0 -> 0, 0 -> 4)
-                .withCellStyle(BackgroundColor -> Color.Green, FontSize -> 16, FontStyle -> Font.Bold, BorderStyle -> Border.Dashed, Align -> Center, ColumnWidth -> Auto)
-
-            .insertRow("统计日期" -> "2018-09-05",
-                        "当日注册数" -> 5,
-                        "当日新增数" -> 2,
-                        "当日在库数" -> 1634,
-                        "当日活跃数" -> 306)
-                .writeSheetWithHeader("催收公司详情", 1)
-                .withHeaderStyle(FontStyle -> Font.Bold, BorderStyle -> Border.Thin, BackgroundColor -> Color.Grey25Percent, Align -> Center, ColumnWidth -> Auto)
-                .withRowStyle(BorderStyle -> Border.Thin, Align -> Center)
-
-        dh.close()
-    }
-
     /*
     字号 1-300
     字形 301-400
@@ -256,7 +235,7 @@ class Excel(val fileName: String) {
     private val CLASSIC = "2003-"
     private val WRONG = "not a excel file"
 
-    val path = FilePath.locate(if (fileName.contains(".")) fileName else fileName + ".xlsx")
+    val path: String = FilePath.locate(if (fileName.contains(".")) fileName else fileName + ".xlsx")
     val file = new File(path)
 
     def fromTemplate(templateName: String): Excel = {
@@ -461,14 +440,14 @@ class Excel(val fileName: String) {
 
         for ((name, value) <- styles) {
             name match {
-                case FontName => font.setFontName(value.asInstanceOf[String])
-                case FontSize => font.setFontHeightInPoints(
+                case Excel.FontName => font.setFontName(value.asInstanceOf[String])
+                case Excel.FontSize => font.setFontHeightInPoints(
                                         value match {
                                             case size: Int => size.toShort
                                             case size: Short => size
                                             case _ => Excel.Font.Five
                                         })
-                case FontStyle =>
+                case Excel.FontStyle =>
                     value match {
                         case Excel.Font.Bold => font.setBold(true)
                         case Excel.Font.Italic => font.setItalic(true)
@@ -479,48 +458,48 @@ class Excel(val fileName: String) {
                         case Excel.Font.Strikeout => font.setStrikeout(true)
                         case _ =>
                     }
-                case FontColor => font.setColor(value.asInstanceOf[HSSFColorPredefined].getIndex)
-                case Align =>
+                case Excel.FontColor => font.setColor(value.asInstanceOf[HSSFColorPredefined].getIndex)
+                case Excel.Align =>
                     value match {
-                        case Left => cellStyle.setAlignment(HorizontalAlignment.LEFT)
-                        case Center => cellStyle.setAlignment(HorizontalAlignment.CENTER)
-                        case Right => cellStyle.setAlignment(HorizontalAlignment.RIGHT)
+                        case Excel.Left => cellStyle.setAlignment(HorizontalAlignment.LEFT)
+                        case Excel.Center => cellStyle.setAlignment(HorizontalAlignment.CENTER)
+                        case Excel.Right => cellStyle.setAlignment(HorizontalAlignment.RIGHT)
                         case _ =>
                     }
-                case VerticalAlign =>
+                case Excel.VerticalAlign =>
                     value match {
-                        case Top => cellStyle.setVerticalAlignment(VerticalAlignment.TOP)
-                        case Middle => cellStyle.setVerticalAlignment(VerticalAlignment.CENTER)
-                        case Bottom => cellStyle.setVerticalAlignment(VerticalAlignment.BOTTOM)
+                        case Excel.Top => cellStyle.setVerticalAlignment(VerticalAlignment.TOP)
+                        case Excel.Middle => cellStyle.setVerticalAlignment(VerticalAlignment.CENTER)
+                        case Excel.Bottom => cellStyle.setVerticalAlignment(VerticalAlignment.BOTTOM)
                         case _ =>
                     }
-                case ColumnWidth =>
+                case Excel.ColumnWidth =>
                         columnWidth = value match {
                             case w: Int => w.toShort
                             case w: Short => w
                             case _ => Excel.Auto
                         }
 
-                case RowHeight => rowHeight = value.asInstanceOf[Int].toShort
+                case Excel.RowHeight => rowHeight = value.asInstanceOf[Int].toShort
                 case Excel.BorderStyle =>
                     cellStyle.setBorderBottom(value.asInstanceOf[org.apache.poi.ss.usermodel.BorderStyle])
                     cellStyle.setBorderLeft(value.asInstanceOf[org.apache.poi.ss.usermodel.BorderStyle])
                     cellStyle.setBorderRight(value.asInstanceOf[org.apache.poi.ss.usermodel.BorderStyle])
                     cellStyle.setBorderTop(value.asInstanceOf[org.apache.poi.ss.usermodel.BorderStyle])
-                case BorderColor =>
+                case Excel.BorderColor =>
                     cellStyle.setBottomBorderColor(value.asInstanceOf[HSSFColorPredefined].getIndex)
                     cellStyle.setLeftBorderColor(value.asInstanceOf[HSSFColorPredefined].getIndex)
                     cellStyle.setRightBorderColor(value.asInstanceOf[HSSFColorPredefined].getIndex)
                     cellStyle.setTopBorderColor(value.asInstanceOf[HSSFColorPredefined].getIndex)
-                case BorderBottomStyle => cellStyle.setBorderBottom(value.asInstanceOf[org.apache.poi.ss.usermodel.BorderStyle])
-                case BorderLeftStyle => cellStyle.setBorderLeft(value.asInstanceOf[org.apache.poi.ss.usermodel.BorderStyle])
-                case BorderRightStyle => cellStyle.setBorderRight(value.asInstanceOf[org.apache.poi.ss.usermodel.BorderStyle])
-                case BorderTopStyle => cellStyle.setBorderTop(value.asInstanceOf[org.apache.poi.ss.usermodel.BorderStyle])
-                case BorderBottomColor => cellStyle.setBottomBorderColor(value.asInstanceOf[HSSFColorPredefined].getIndex)
-                case BorderLeftColor => cellStyle.setLeftBorderColor(value.asInstanceOf[HSSFColorPredefined].getIndex)
-                case BorderRightColor => cellStyle.setRightBorderColor(value.asInstanceOf[HSSFColorPredefined].getIndex)
-                case BorderTopColor => cellStyle.setTopBorderColor(value.asInstanceOf[HSSFColorPredefined].getIndex)
-                case BackgroundColor =>
+                case Excel.BorderBottomStyle => cellStyle.setBorderBottom(value.asInstanceOf[org.apache.poi.ss.usermodel.BorderStyle])
+                case Excel.BorderLeftStyle => cellStyle.setBorderLeft(value.asInstanceOf[org.apache.poi.ss.usermodel.BorderStyle])
+                case Excel.BorderRightStyle => cellStyle.setBorderRight(value.asInstanceOf[org.apache.poi.ss.usermodel.BorderStyle])
+                case Excel.BorderTopStyle => cellStyle.setBorderTop(value.asInstanceOf[org.apache.poi.ss.usermodel.BorderStyle])
+                case Excel.BorderBottomColor => cellStyle.setBottomBorderColor(value.asInstanceOf[HSSFColorPredefined].getIndex)
+                case Excel.BorderLeftColor => cellStyle.setLeftBorderColor(value.asInstanceOf[HSSFColorPredefined].getIndex)
+                case Excel.BorderRightColor => cellStyle.setRightBorderColor(value.asInstanceOf[HSSFColorPredefined].getIndex)
+                case Excel.BorderTopColor => cellStyle.setTopBorderColor(value.asInstanceOf[HSSFColorPredefined].getIndex)
+                case Excel.BackgroundColor =>
                     cellStyle.setFillForegroundColor(value.asInstanceOf[HSSFColorPredefined].getIndex)
                     cellStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND)
                 case Excel.DataFormat => cellStyle.setDataFormat(HSSFDataFormat.getBuiltinFormat(value.asInstanceOf[String]))

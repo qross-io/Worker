@@ -9,7 +9,7 @@ import scala.sys.process._
 
 object TypeExt {
 
-    implicit class StringExt(string: String) {
+    implicit class StringExt(var string: String) {
 
         def toBooleanOrElse(defaultValue: Boolean = false): Boolean = {
             if (Set("yes", "true", "1", "on", "ok").contains(string)) {
@@ -68,7 +68,7 @@ object TypeExt {
             }
         }
 
-        def toMap(delimiter: String = "&", terminator: String = "="): Map[String, String] = {
+        def toHashMap(delimiter: String = "&", terminator: String = "="): Map[String, String] = {
             val params = string.split(delimiter)
             val queries = new HashMap[String, String]()
             for (param <- params) {
@@ -82,15 +82,15 @@ object TypeExt {
             queries.toMap
         }
 
-        def eval(): DataCell = {
+        def eval(): Option[DataCell] = {
             val jse: ScriptEngine = new ScriptEngineManager().getEngineByName("JavaScript")
             try {
-                new DataCell(jse.eval(string))
+                Some(new DataCell(jse.eval(string)))
             }
             catch {
                 case e: ScriptException =>
                     e.printStackTrace()
-                    null
+                    None
             }
 
             //The code below doesn't work.
@@ -100,6 +100,48 @@ object TypeExt {
             //interpreter.bind("date", "java.util.Date", new java.util.Date());
             //interpreter.eval[String]("""new sdf("yyyy-MM-dd").format(date)""") get
             //    interpreter.close()
+        }
+
+        //去掉变量修饰符
+        def removeVariableModifier(): String = {
+            string.replace("$", "").replace("{", "").replace("}", "").trim
+        }
+
+        //为计算值添加双引号，用于PSQL计算过程中
+        def useQuotes(): String = {
+            "\"" + string.replace("\"", "\\\"") + "\""
+        }
+
+        //去掉常量中的双引号，用于PSQL计算结果
+        def removeQuotes(): String = {
+            if ((string.startsWith("\"") && string.endsWith("\"")) || (string.startsWith("'") && string.endsWith("'"))) {
+                string.substring(1, string.length - 1).replace("\\\"", "\"")
+            }
+            else {
+                string
+            }
+        }
+
+        def $trim(prefix: String, suffix: String): String = {
+            string = string.trim
+            if (string.startsWith(prefix)) {
+                string = string.drop(1)
+            }
+            if (string.endsWith(suffix)) {
+                string = string.dropRight(1)
+            }
+            string
+        }
+
+        def $quote(char: String): String = {
+            if (!string.startsWith(char)) {
+                string = char + string
+            }
+            else if (!string.endsWith(char)) {
+                string += char
+            }
+
+            string
         }
 
         def bash(): Int = {

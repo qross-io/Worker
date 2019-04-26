@@ -2,7 +2,7 @@ package io.qross.net
 
 import io.qross.core.DataRow
 import io.qross.fs.{FilePath, OpenResourceFile}
-import io.qross.jdbc.JDBC
+import io.qross.jdbc.{DataSource, JDBC}
 import io.qross.util.{Global, Output, Timer}
 import javax.activation.{DataHandler, FileDataSource}
 import javax.mail.internet._

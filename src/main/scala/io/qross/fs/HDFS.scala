@@ -2,24 +2,18 @@ package io.qross.util
 
 import java.io.IOException
 
-import io.qross.model.Global.CONFIG
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
 import scala.collection.mutable
 
 object HDFS {
-    
-    def KERBEROS_AUTH: Boolean = CONFIG.getBoolean("KERBEROS_AUTH")
-    def KRB_USER_PRINCIPAL: String = CONFIG.getString("KRB_USER_PRINCIPAL")
-    def KRB_KEYTAB_PATH: String = CONFIG.getString("KRB_KEYTAB_PATH")
-    def KRB_KRB5CONF_PATH: String = CONFIG.getString("KRB_KRB5CONF_PATH")
 
     private val conf = new Configuration()
     conf.set("fs.hdfs.impl", "org.apache.hadoop.hdfs.DistributedFileSystem")
     
-    if (KERBEROS_AUTH) {
-        KerberosLogin.login(KRB_USER_PRINCIPAL, KRB_KEYTAB_PATH, KRB_KRB5CONF_PATH, conf)
+    if (Global.KERBEROS_AUTH) {
+        KerberosLogin.login(Global.KRB_USER_PRINCIPAL, Global.KRB_KEYTAB_PATH, Global.KRB_KRB5CONF_PATH, conf)
     }
     
     private lazy val fileSystem = FileSystem.get(conf)

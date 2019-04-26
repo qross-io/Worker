@@ -96,7 +96,7 @@ case class DateTime(private var dateTime: String = "", private var formatStyle: 
         this.localDateTime = localDateTime
         this
     }
-    
+
     def get(field: ChronoField): Int = this.localDateTime.get(field)
     def getYear: Int = this.localDateTime.getYear
     def getMonth: Int = this.localDateTime.getMonthValue
@@ -108,6 +108,17 @@ case class DateTime(private var dateTime: String = "", private var formatStyle: 
     def getSecond: Int = this.localDateTime.getSecond
     def getNano: Int = this.localDateTime.getNano
     def getTickValue: String = this.getString("yyyyMMddHHmm00")
+
+    def year: Int = this.localDateTime.getYear
+    def month: Int = this.localDateTime.getMonthValue
+    def weekName: String = this.getString("EEE")
+    def dayOfWeek: Int = this.localDateTime.getDayOfWeek.getValue
+    def dayOfMonth: Int = this.localDateTime.getDayOfMonth
+    def hour: Int = this.localDateTime.getHour
+    def minute: Int = this.localDateTime.getMinute
+    def second: Int = this.localDateTime.getSecond
+    def nano: Int = this.localDateTime.getNano
+    def tickValue: String = this.getString("yyyyMMddHHmm00")
     
     def set(field: ChronoField, value: Int): DateTime = {
         this.localDateTime = this.localDateTime.`with`(field, value)
