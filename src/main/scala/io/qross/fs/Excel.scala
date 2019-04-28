@@ -7,7 +7,8 @@ import io.qross.core.DataTable
 import io.qross.jdbc.DataType
 import io.qross.jdbc.DataType.DataType
 import io.qross.net.Email
-import io.qross.util._
+import io.qross.setting.Global
+import io.qross.ext._
 import org.apache.poi.hssf.record.cf.FontFormatting
 import org.apache.poi.hssf.usermodel.{HSSFDataFormat, HSSFWorkbook}
 import org.apache.poi.hssf.util.HSSFColor.HSSFColorPredefined

@@ -1,7 +1,8 @@
 package io.qross.fs
 
 import io.qross.core.DataTable
-import io.qross.util.{Cube, Timer}
+import io.qross.thread.Cube
+import io.qross.time.Timer
 
 class FileReaderConsumer(cube: Cube, handler: DataTable => DataTable) extends Thread {
 

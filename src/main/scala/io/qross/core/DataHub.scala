@@ -2,13 +2,16 @@ package io.qross.core
 
 import java.io.File
 
-import io.qross.fs.{Excel, FilePath, FileReader, FileWriter}
+import io.qross.fs._
 import io.qross.jdbc.DataSource
 import io.qross.jdbc.DataType.DataType
 import io.qross.net.{Email, HttpClient, Json}
-import io.qross.util.Output._
-import io.qross.util.TypeExt._
-import io.qross.util._
+import io.qross.setting.Global
+import io.qross.thread.Parallel
+import io.qross.time.{DateTime, Timer}
+import io.qross.ext.Output._
+import io.qross.ext.TypeExt._
+import io.qross.ext._
 
 import scala.collection.mutable
 import scala.collection.parallel.mutable.ParArray
@@ -813,7 +816,7 @@ class DataHub () {
                 for (i <- 0 until LINES) {
                     parallel.add(new Bulker(CURRENT))
                 }
-                parallel.startAll(1)
+                parallel.startAll()
                 parallel.waitAll()
 
                 //blockSize
@@ -970,7 +973,7 @@ class DataHub () {
             parallel.add(new Batcher(TARGET, nonQuerySentence))
         }
 
-        parallel.startAll(0.1F)
+        parallel.startAll()
         parallel.waitAll()
 
         pageSQLs.clear()
@@ -998,9 +1001,9 @@ class DataHub () {
                 for (i <- 0 until LINES) {  //Global.CORES
                     parallel.add(new Pager(CURRENT, selectSQL, "@" + param, pageSize, TANKS))
                 }
-                parallel.startAll(0.1F)
+                parallel.startAll()
                 //consumer
-                while(!Pager.CUBE.closed || Pager.DATA.size() > 0 || parallel.running) {
+                while(Pager.DATA.size() > 0 || parallel.running) {
                     val table = Pager.DATA.poll()
                     if (table != null) {
                         $TOTAL += table.count()
@@ -1011,6 +1014,7 @@ class DataHub () {
                     Timer.sleep(0.1F)
                 }
                 parallel.waitAll()
+                Pager.CUBE.reset()
                 Output.writeMessage("Exit All Page")
 
                 /* origin code for single thread
@@ -1083,7 +1087,7 @@ class DataHub () {
             for (i <- 0 until LINES) {  //Global.CORES
                 parallel.add(new Blocker(CURRENT, TANKS))
             }
-            parallel.startAll(1)
+            parallel.startAll()
             //consumer
             while(!Blocker.CUBE.closed || Blocker.DATA.size() > 0 || parallel.running) {
                 val table = Blocker.DATA.poll()

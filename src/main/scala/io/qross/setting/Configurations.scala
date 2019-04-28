@@ -1,4 +1,4 @@
-package io.qross.util
+package io.qross.setting
 
 import io.qross.core.DataRow
 import io.qross.jdbc.{DataSource, JDBC}

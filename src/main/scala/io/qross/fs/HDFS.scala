@@ -1,7 +1,8 @@
-package io.qross.util
+package io.qross.ext
 
 import java.io.IOException
 
+import io.qross.setting.Global
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 

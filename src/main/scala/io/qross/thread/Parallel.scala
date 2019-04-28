@@ -1,4 +1,6 @@
-package io.qross.util
+package io.qross.thread
+
+import io.qross.time.Timer
 
 import scala.collection.mutable.ArrayBuffer
 import scala.util.control.Breaks._
@@ -16,9 +18,11 @@ import scala.util.control.Breaks._
         thread.start()
     }
 
-    def startAll(interval: Float): Unit = {
+    def startAll(interval: Float = 0.1F): Unit = {
         for (t <- this.threads) {
-            Timer.sleep(interval)
+            if (interval > 0) {
+                Timer.sleep(interval)
+            }
             t.start()
         }
     }

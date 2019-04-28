@@ -1,7 +1,7 @@
 package io.qross.psql
 
 import io.qross.jdbc.DataSource
-import io.qross.util.TypeExt._
+import io.qross.ext.TypeExt._
 import io.qross.psql.Patterns._
 
 class SetVariable(statement: Statement, var variable: String, expression: String) {

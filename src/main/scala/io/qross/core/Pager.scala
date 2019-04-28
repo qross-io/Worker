@@ -3,7 +3,9 @@ package io.qross.core
 import java.util.concurrent.ConcurrentLinkedQueue
 
 import io.qross.jdbc.DataSource
-import io.qross.util.{Cube, Output, Timer}
+import io.qross.thread.Cube
+import io.qross.time.Timer
+import io.qross.ext.Output
 
 object Pager {
     val CUBE = new Cube()
@@ -15,7 +17,7 @@ class Pager(source: DataSource,
             param: String = "@offset",
             pageSize: Int = 10000, tanks: Int = 3) extends Thread {
 
-    //线程创建时加1
+    //线程创建时加1 - 在线程内部判断时使用
     Pager.CUBE.mark()
 
     override def run(): Unit = {

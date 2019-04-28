@@ -4,8 +4,8 @@ import java.util.regex.{Matcher, Pattern}
 
 import io.qross.core.{DataCell, DataRow}
 import io.qross.jdbc.DataType
-import io.qross.util.Output
-import io.qross.util.TypeExt._
+import io.qross.ext.Output
+import io.qross.ext.TypeExt._
 import io.qross.psql.Patterns._
 
 import scala.collection.mutable

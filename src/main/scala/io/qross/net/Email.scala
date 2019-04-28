@@ -3,7 +3,9 @@ package io.qross.net
 import io.qross.core.DataRow
 import io.qross.fs.{FilePath, OpenResourceFile}
 import io.qross.jdbc.{DataSource, JDBC}
-import io.qross.util.{Global, Output, Timer}
+import io.qross.setting.Global
+import io.qross.time.Timer
+import io.qross.ext.Output
 import javax.activation.{DataHandler, FileDataSource}
 import javax.mail.internet._
 import javax.mail.{Message, SendFailedException, Session, Transport}

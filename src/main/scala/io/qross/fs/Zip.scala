@@ -1,4 +1,4 @@
-package io.qross.util
+package io.qross.fs
 
 import java.io.{File, FileInputStream, FileOutputStream}
 import java.util.zip.{ZipEntry, ZipOutputStream}

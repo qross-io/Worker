@@ -3,7 +3,7 @@ package io.qross.core
 import java.util.concurrent.ConcurrentLinkedQueue
 
 import io.qross.jdbc.DataSource
-import io.qross.util.Timer
+import io.qross.time.Timer
 
 object Bulker {
     val QUEUE = new ConcurrentLinkedQueue[String]()

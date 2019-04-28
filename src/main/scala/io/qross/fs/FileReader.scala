@@ -6,7 +6,10 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.zip.GZIPInputStream
 
 import io.qross.core.{DataRow, DataTable}
-import io.qross.util._
+import io.qross.setting.Global
+import io.qross.thread.{Cube, Parallel}
+import io.qross.time.Timer
+import io.qross.ext._
 
 //在hive相关的包中
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
@@ -72,7 +75,7 @@ case class FileReader(filePath: String) {
         for (i <- 0 until Global.CORES * 2) {
             parallel.add(new FileReaderConsumer(cube, handler))
         }
-        parallel.startAll(1)
+        parallel.startAll()
 
         //producer
         var table = new DataTable()

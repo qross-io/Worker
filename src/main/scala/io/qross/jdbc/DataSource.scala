@@ -4,7 +4,8 @@ import java.sql._
 import java.util.regex.Pattern
 
 import io.qross.core.{DataRow, DataTable}
-import io.qross.util._
+import io.qross.time.Timer
+import io.qross.ext._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer

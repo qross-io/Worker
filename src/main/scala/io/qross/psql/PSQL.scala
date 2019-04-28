@@ -4,9 +4,10 @@ import java.util.regex.Matcher
 
 import io.qross.core.DataCell
 import io.qross.jdbc.DataSource
-import io.qross.util.TypeExt._
-import io.qross.util.{Output, Timer}
+import io.qross.ext.TypeExt._
+import io.qross.ext.Output
 import io.qross.psql.Patterns._
+import io.qross.time.Timer
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -42,7 +43,9 @@ class PSQL(var SQL: String) {
     //FOR语句循环项变量值
     private val FOR_VARIABLES = new mutable.ArrayStack[ForLoopVariables]
 
-    def createStatement(caption: String, sentence: String, expressions: String*) = new Statement(this, caption, sentence, expressions: _*)
+    def createStatement(caption: String, sentence: String, expressions: String*): Statement = {
+        new Statement(this, caption, sentence, expressions: _*)
+    }
 
     def parse(): Unit = {
         root.sentence = SQL
@@ -68,7 +71,206 @@ class PSQL(var SQL: String) {
 
         var m: Matcher = null
 
-        if ( {m = $IF.matcher(SQL); m}.find) {
+        sentence.trim.takeBefore("""\s""".r).toUpperCase match {
+            case "IF" =>
+                if ({m = $IF.matcher(sentence); m}.find) {
+                    val $if: Statement = this.createStatement("IF", m.group(0), m.group(1))
+                    $if.closed = false
+                    PARSING.last.addStatement($if)
+                    //只进栈
+                    PARSING.push($if)
+                    //待关闭的控制语句
+                    TO_BE_CLOSE.push($if)
+                    //继续解析第一条子语句
+                    parseStatement(sentence.substring(m.group(0).length).trim())
+                }
+            case "ELSE" | "ELSIF" =>
+                if ({m = $ELSE_IF.matcher(sentence); m}.find) {
+                    val $elseIf: Statement = this.createStatement("ELSE_IF", m.group(0), m.group(1))
+                    if (PARSING.isEmpty || (!(PARSING.last.caption == "IF") && !(PARSING.last.caption == "ELSE_IF"))) {
+                        throw new SQLParserException("Can't find previous IF or ELSE IF clause: " + m.group(0))
+                    }
+                    //先出栈再进栈
+                    PARSING.pop()
+                    PARSING.last.addStatement($elseIf)
+                    PARSING.push($elseIf)
+                    //继续解析子语句
+                    parseStatement(sentence.substring(m.group(0).length).trim)
+                }
+                else if ({m = $ELSE.matcher(sentence); m}.find) {
+                    val $else: Statement = this.createStatement("ELSE", m.group(0))
+                    if (PARSING.isEmpty || (!(PARSING.last.caption == "IF") && !(PARSING.last.caption == "ELSE_IF"))) {
+                        throw new SQLParserException("Can't find previous IF or ELSE IF clause: " + m.group(0))
+                    }
+                    //先出栈再进栈
+                    PARSING.pop()
+                    PARSING.last.addStatement($else)
+                    PARSING.push($else)
+                    //继续解析子语句
+                    parseStatement(sentence.substring(m.group(0).length).trim)
+                }
+            case "END" => //END IF; END LOOP;
+                if ({m = $END_IF.matcher(sentence); m}.find) {
+                    //检查IF语句是否正常闭合
+                    if (TO_BE_CLOSE.isEmpty) throw new SQLParserException("Can't find IF clause: " + m.group)
+                    else if (!(TO_BE_CLOSE.last.caption == "IF")) throw new SQLParserException(TO_BE_CLOSE.last.caption + " hasn't closed: " + TO_BE_CLOSE.last.sentence)
+                    else {
+                        TO_BE_CLOSE.last.closed = true
+                        TO_BE_CLOSE.pop()
+                    }
+                    val $endIf: Statement = this.createStatement("END_IF", m.group(0))
+                    //只出栈
+                    PARSING.pop
+                    PARSING.last.addStatement($endIf)
+                }
+                else if ({m = $END_LOOP.matcher(sentence); m}.find) {
+                    //检查FOR语句是否正常闭合
+                    if (TO_BE_CLOSE.isEmpty) {
+                        throw new SQLParserException("Can't find FOR or WHILE clause: " + m.group)
+                    }
+                    else if (!Set("FOR_SELECT", "FOR_IN", "FOR_TO" , "WHILE").contains(TO_BE_CLOSE.last.caption)) {
+                        throw new SQLParserException(TO_BE_CLOSE.last.caption + " hasn't closed: " + TO_BE_CLOSE.last.sentence)
+                    }
+                    else {
+                        TO_BE_CLOSE.last.closed = true
+                        TO_BE_CLOSE.pop()
+                    }
+                    val $endLoop: Statement = this.createStatement("END_LOOP", m.group(0))
+                    //只出栈
+                    PARSING.pop()
+                    PARSING.last.addStatement($endLoop)
+                }
+            case "FOR" =>
+                if ({m = $FOR$SELECT.matcher(sentence); m}.find) {
+                    val $for$select: Statement = this.createStatement("FOR_SELECT", m.group(0), m.group(1).trim, m.group(2).trim)
+                    $for$select.closed = false
+                    PARSING.last.addStatement($for$select)
+                    //只进栈
+                    PARSING.push($for$select)
+                    //待关闭的控制语句
+                    TO_BE_CLOSE.push($for$select)
+                    //继续解析子语句
+                    parseStatement(sentence.substring(m.group(0).length).trim)
+                }
+                else if ({m = $FOR$TO.matcher(sentence); m}.find) {
+                    val $for$to: Statement = this.createStatement("FOR_TO", m.group(0), m.group(1).trim(), m.group(2).trim(), m.group(3).trim())
+                    $for$to.closed = false
+                    PARSING.last.addStatement($for$to)
+
+                    //只进栈
+                    PARSING.push($for$to)
+                    //待关闭的控制语句
+                    TO_BE_CLOSE.push($for$to)
+
+                    //继续解析子语句
+                    parseStatement(sentence.substring(m.group(0).length()).trim())
+                }
+                else if ({m = $FOR$IN.matcher(sentence); m}.find) {
+                    val $for: Statement = this.createStatement("FOR_IN", m.group(0), m.group(1).trim, m.group(2).trim, (if (m.group(4) != null) {
+                        m.group(4)
+                    }
+                    else {
+                        ","
+                    }).trim)
+                    $for.closed = false
+                    PARSING.last.addStatement($for)
+                    //只进栈
+                    PARSING.push($for)
+                    //待关闭的控制语句
+                    TO_BE_CLOSE.push($for)
+                    //继续解析子语句
+                    parseStatement(sentence.substring(m.group(0).length).trim)
+                }
+            case "WHILE" =>
+                if ({m = $WHILE.matcher(sentence); m}.find) {
+                    val $while: Statement = this.createStatement("WHILE", m.group(0), m.group(1).trim)
+                    $while.closed = false
+                    PARSING.last.addStatement($while)
+                    //只进栈
+                    PARSING.push($while)
+                    //待关闭的控制语句
+                    TO_BE_CLOSE.push($while)
+                    //继续解析子语句
+                    parseStatement(sentence.substring(m.group(0).length).trim)
+                }
+            case "SET" =>
+                if ({m = $SET.matcher(sentence); m}.find) {
+                    val $set: Statement = this.createStatement("SET", sentence, m.group(1).trim, sentence.substring(sentence.indexOf(":=") + 2).trim)
+                    PARSING.last.addStatement($set)
+                }
+            case "OPEN" =>
+                if ({m = $OPEN.matcher(sentence); m}.find) {
+                    PARSING.last.addStatement(this.createStatement("OPEN", sentence, m.group(1)))
+                    if (m.group(1).endsWith(":")) {
+                        parseStatement(sentence.takeAfter(":"))
+                    }
+                }
+            case "SAVE" =>
+                //save as
+                if ({m = $SAVE_AS.matcher(sentence); m}.find) {
+                    PARSING.last.addStatement(this.createStatement("SAVE", sentence, m.group(1), m.group(2)))
+                    if (m.group(1).endsWith(":")) {
+                        parseStatement(sentence.takeAfter(":"))
+                    }
+                }
+            case "CACHE" =>
+                if ({m = $CACHE.matcher(sentence); m}.find) {
+                    PARSING.last.addStatement(this.createStatement("CACHE", sentence, m.group(1)))
+                    parseStatement(sentence.takeAfter("#"))
+                }
+            case "TEMP" =>
+                if ({m = $TEMP.matcher(sentence); m}.find) {
+                    PARSING.last.addStatement(this.createStatement("TEMP", sentence, m.group(1)))
+                    parseStatement(sentence.takeAfter("#"))
+                }
+            case "GET" =>
+                if ({m = $GET.matcher(sentence); m}.find) {
+                    PARSING.last.addStatement(this.createStatement("GET", sentence, m.group(1)))
+                    parseStatement(sentence.takeAfter("#"))
+                }
+            case "PASS" =>
+                if ({m = $PASS.matcher(sentence); m}.find) {
+                    PARSING.last.addStatement(this.createStatement("PASS", sentence, m.group(1)))
+                    parseStatement(sentence.takeAfter("#"))
+                }
+            case "PUT" =>
+                if ({m = $PUT.matcher(sentence); m}.find) {
+                    PARSING.last.addStatement(this.createStatement("PUT", sentence, m.group(1)))
+                    parseStatement(sentence.takeAfter("#"))
+                }
+            case "OUT" =>
+                if ({m = $OUT.matcher(sentence); m}.find) {
+                    PARSING.last.addStatement(this.createStatement("OUT", sentence, m.group(1), m.group(2)))
+                    parseStatement(sentence.takeAfter("#"))
+                }
+            case "TRY" =>
+                if ({m = $TRY.matcher(sentence); m}.find) {
+                    PARSING.last.addStatement(this.createStatement("TRY", sentence, m.group(1)))
+                    parseStatement(sentence.takeAfter("#"))
+                }
+            case "PRINT" =>
+                if ({m = $PRINT.matcher(sentence); m}.find) {
+                    PARSING.last.addStatement(this.createStatement("PRINT", sentence, m.group(1)))
+                }
+            case "LIST" => //show
+                if ({m = $LIST.matcher(sentence); m}.find) {
+                    PARSING.last.addStatement(this.createStatement("LIST", sentence, m.group(1)))
+                }
+            case caption =>
+                if (caption == "SELECT") {
+                    PARSING.last.addStatement(this.createStatement("SELECT", sentence)
+                }
+                else if (Set("INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "TRUNCATE", "ALTER").contains(caption)) {
+                    PARSING.last.addStatement(this.createStatement(caption, sentence)
+                }
+                else {
+                    throw new SQLParserException("Unrecognized or unsupported sentence: " + sentence)
+                }
+            case _ =>
+        }
+
+        //old code - to be remove
+        if ({m = $IF.matcher(SQL); m}.find) {
             val $if: Statement = this.createStatement("IF", m.group(0), m.group(1))
             $if.closed = false
             PARSING.last.addStatement($if)

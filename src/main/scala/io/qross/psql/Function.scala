@@ -1,7 +1,7 @@
 package io.qross.psql
 
 import java.util.regex.{Matcher, Pattern}
-import io.qross.util.TypeExt._
+import io.qross.ext.TypeExt._
 import io.qross.psql.Patterns._
 
 import scala.collection.mutable.ArrayBuffer

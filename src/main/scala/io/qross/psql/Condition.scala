@@ -3,7 +3,7 @@ package io.qross.psql
 import java.util.regex.{Matcher, Pattern}
 
 import io.qross.jdbc.DataType
-import io.qross.util.TypeExt._
+import io.qross.ext.TypeExt._
 
 class Condition(var expression: String) {
     var field: String = null

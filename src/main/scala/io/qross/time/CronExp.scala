@@ -1,13 +1,11 @@
-package io.qross.util
+package io.qross.time
 
 import java.time.temporal.{ChronoField, ChronoUnit}
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.collection.{immutable, mutable}
 import scala.util.control.Breaks._
 import scala.util.{Success, Try}
-import io.qross.util.Output.writeMessage
-import io.qross.util.CronExp._
 
 object CronExp {
 
@@ -28,7 +26,7 @@ object CronExp {
     val WEEKDAY = "WEEKDAY"
     val WEEK = "WEEK"
     val YEAR = "YEAR"
-    val WEEKS = immutable.HashMap[String, String](
+    val WEEKS: Map[String, String]  = Map[String, String](
         "SUN" -> "1",
         "MON" -> "2",
         "TUE" -> "3",
@@ -37,7 +35,7 @@ object CronExp {
         "FRI" -> "6",
         "SAT" -> "7"
     )
-    val MONTHS = immutable.HashMap[String, String](
+    val MONTHS: Map[String, String] = Map[String, String](
         "JAN" -> "1",
         "FEB" -> "2",
         "MAR" -> "3",
@@ -77,6 +75,8 @@ object CronExp {
 }
 
 case class CronExp(expression: String = "0 * * * * ? *") {
+
+    import io.qross.time.CronExp._
 
     /*
     second, minute, hour, dayOfMonth, month, dayOfWeek, year

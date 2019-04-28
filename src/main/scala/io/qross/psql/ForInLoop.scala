@@ -3,7 +3,7 @@ package io.qross.psql
 import java.util.regex.Matcher
 
 import io.qross.core.DataRow
-import io.qross.util.TypeExt._
+import io.qross.ext.TypeExt._
 
 import scala.collection.mutable.ArrayBuffer
 

@@ -1,6 +1,6 @@
 package io.qross.psql
 
-import io.qross.util.TypeExt._
+import io.qross.ext.TypeExt._
 
 class ForToLoop(statement: Statement, var variable: String, rangeBegin: String, rangeEnd: String) {
     variable = variable.removeVariableModifier()

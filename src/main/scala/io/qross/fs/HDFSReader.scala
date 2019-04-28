@@ -1,10 +1,11 @@
-package io.qross.util
+package io.qross.ext
 
 
 import java.io.{IOException, InputStream}
 import java.util.Scanner
 import java.util.zip.GZIPInputStream
 
+import io.qross.setting.Global
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}

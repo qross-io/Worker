@@ -1,6 +1,7 @@
 package io.qross.psql
 
-import io.qross.util.DateTime
+import io.qross.time.DateTime
+
 import scala.collection.mutable
 
 object CACHE {

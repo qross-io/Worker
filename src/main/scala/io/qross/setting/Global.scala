@@ -1,6 +1,6 @@
-package io.qross.util
+package io.qross.setting
 
-import io.qross.util.TypeExt._
+import io.qross.ext.TypeExt._
 
 object Global {
 

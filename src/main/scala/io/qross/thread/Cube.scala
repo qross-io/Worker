@@ -1,4 +1,4 @@
-package io.qross.util
+package io.qross.thread
 
 class Cube(max: Int = -1) {
 
@@ -23,12 +23,12 @@ class Cube(max: Int = -1) {
         this.value = -1
     }
 
-    //活跃线程+1
+    //活跃线程+1, 在线程内部判断时使用
     def mark(): Unit = synchronized {
         this.threads += 1
     }
 
-    //活跃线程-1
+    //活跃线程-1, 在线程内部判断时使用
     def wipe(): Unit = synchronized {
         this.threads -= 1
     }

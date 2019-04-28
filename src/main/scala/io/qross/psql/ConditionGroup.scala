@@ -3,7 +3,7 @@ package io.qross.psql
 import java.util.regex.Matcher
 
 import io.qross.jdbc.DataSource
-import io.qross.util.Output
+import io.qross.ext.Output
 import io.qross.psql.Patterns._
 
 import scala.collection.mutable

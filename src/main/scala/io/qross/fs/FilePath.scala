@@ -2,8 +2,8 @@ package io.qross.fs
 
 import java.io.File
 
-import io.qross.util.Global
-import io.qross.util.TypeExt._
+import io.qross.setting.Global
+import io.qross.ext.TypeExt._
 
 object FilePath {
     

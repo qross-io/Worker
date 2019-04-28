@@ -1,11 +1,14 @@
-package io.qross.util
+package io.qross.ext
 
 import io.qross.core.DataCell
+import io.qross.setting.Global
+import io.qross.time.Timer
 import javax.script.{ScriptEngine, ScriptEngineManager, ScriptException}
 
 import scala.util.{Success, Try}
 import scala.collection.mutable.HashMap
 import scala.sys.process._
+import scala.util.matching.Regex
 
 object TypeExt {
 
@@ -144,12 +147,40 @@ object TypeExt {
             string
         }
 
+        def takeBefore(char: Any): String = {
+            char match {
+                case char: String => string.take(string.indexOf(char))
+                case index: Integer => string.take(index)
+                case rex: Regex => string.take(string.indexOf(rex.findFirstIn(string).getOrElse("")))
+                case _ => ""
+            }
+        }
+
+        def takeAfter(char: Any): String = {
+            char match {
+                case char: String =>
+                    if (char == "") {
+                        ""
+                    }
+                    else {
+                        string.substring(string.indexOf(char) + 1)
+                    }
+                case index: Integer => string.substring(index + 1)
+                case rex: Regex =>
+                    rex.findFirstIn(string) match {
+                        case Some(v) => string.substring(string.indexOf(v) + 1)
+                        case None => ""
+                    }
+                case _ => ""
+            }
+        }
+
         def bash(): Int = {
             val exitValue = string.!(ProcessLogger(out => {
                 println(out)
             }, err => {
-                //System.err.println(err)
-                println(err)
+                System.err.println(err)
+                //println(err)
             }))
 
             exitValue
@@ -173,10 +204,10 @@ object TypeExt {
                 Timer.sleep(1)
             }
 
-            println("exitValue: " + process.exitValue())
+            //println("exitValue: " + process.exitValue())
             //process.destroy()
 
-            0
+            process.exitValue()
         }
     }
 

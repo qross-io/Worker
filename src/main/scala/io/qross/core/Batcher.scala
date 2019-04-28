@@ -1,7 +1,8 @@
 package io.qross.core
 
 import io.qross.jdbc.DataSource
-import io.qross.util._
+import io.qross.time.Timer
+import io.qross.ext._
 
 class Batcher(source: DataSource, sentence: String) extends Thread {
 

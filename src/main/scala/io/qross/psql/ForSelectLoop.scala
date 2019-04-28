@@ -1,7 +1,7 @@
 package io.qross.psql
 
 import io.qross.jdbc.DataSource
-import io.qross.util.TypeExt._
+import io.qross.ext.TypeExt._
 
 class ForSelectLoop(statement: Statement, var variable: String, selectSQL: String) {
     private val variables = variable.removeVariableModifier().split(",")

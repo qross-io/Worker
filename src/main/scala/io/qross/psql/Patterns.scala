@@ -5,7 +5,7 @@ import java.util.regex.Pattern
 object Patterns {
     val $SET: Pattern = Pattern.compile("^SET\\s+(\\$\\{?[a-z_][a-z0-9_]*}?(\\s*,\\s*\\$\\{?[a-z_][a-z0-9_]*}?)*\\s*):=", Pattern.CASE_INSENSITIVE)
     val $NAME: Pattern = Pattern.compile("^([a-z][a-z0-9_#]*)?\\s*:", Pattern.CASE_INSENSITIVE)
-    val $TRY: Pattern = Pattern.compile("^TRY\\s+(.+?)\\s+?@", Pattern.CASE_INSENSITIVE)
+    val $TRY: Pattern = Pattern.compile("""^TRY\s+(\S+?)\s+?#""", Pattern.CASE_INSENSITIVE)
     val $IF: Pattern = Pattern.compile("^IF\\s+(.+?)\\s+THEN", Pattern.CASE_INSENSITIVE)
     val $ELSE_IF: Pattern = Pattern.compile("^ELSE? ?IF\\s+(.+?)\\s+THEN", Pattern.CASE_INSENSITIVE)
     val $ELSE: Pattern = Pattern.compile("^ELSE", Pattern.CASE_INSENSITIVE)
@@ -40,4 +40,16 @@ object Patterns {
     val $EXPRESSION: Pattern = Pattern.compile("""\$\{\{(.+?)}}""", Pattern.CASE_INSENSITIVE)
     val $FUNCTION: Pattern = Pattern.compile("\\$\\{?(" + Function.NAMES.mkString("|") + ")\\s*\\(", Pattern.CASE_INSENSITIVE)
     val $VARIABLE: Pattern = Pattern.compile("""\$\{?([a-z_][a-z0-9_]*)}?""", Pattern.CASE_INSENSITIVE)
+
+    //new sentence
+    val $OPEN: Pattern = Pattern.compile("""^OPEN\s+(\S+)\s*:?""", Pattern.CASE_INSENSITIVE)
+    val $SAVE_AS: Pattern = Pattern.compile("""^SAVE\s*AS\s+(CACHE\s+TABLE|TEMP\s+TABLE)?\s+(\S+)\s*:?""", Pattern.CASE_INSENSITIVE)
+    val $CACHE: Pattern = Pattern.compile("""^CACHE\s+(\S+)#""", Pattern.CASE_INSENSITIVE)
+    val $TEMP: Pattern = Pattern.compile("""^TEMP\s+(\S+)#""", Pattern.CASE_INSENSITIVE)
+    val $GET: Pattern = Pattern.compile("""^GET\s+(\S+)#""", Pattern.CASE_INSENSITIVE)
+    val $PASS: Pattern = Pattern.compile("""^PASS\s+(\S+)#""", Pattern.CASE_INSENSITIVE)
+    val $PUT: Pattern = Pattern.compile("""^PUT\s+(\S+)#""", Pattern.CASE_INSENSITIVE)
+    val $OUT: Pattern = Pattern.compile("""^OUT\s+(LIST|SINGLE|MAP|AFFECTED)?\s+(\S+)#""", Pattern.CASE_INSENSITIVE)
+    val $PRINT: Pattern = Pattern.compile("""^PRINT\s+(.+)""", Pattern.CASE_INSENSITIVE)
+    val $LIST: Pattern = Pattern.compile("""^LIST\s+(\d+)""", Pattern.CASE_INSENSITIVE)
 }

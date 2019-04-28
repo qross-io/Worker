@@ -1,6 +1,7 @@
 package io.qross.jdbc
 
-import io.qross.util.{Output, Properties}
+import io.qross.setting.Properties
+import io.qross.ext.Output
 
 import scala.collection.{immutable, mutable}
 import scala.util.control.Breaks.breakable

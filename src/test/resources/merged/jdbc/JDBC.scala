@@ -3,7 +3,9 @@ package io.qross.jdbc
 import java.sql._
 
 import io.qross.core.{DataRow, DataTable, DataType}
-import io.qross.util.{Parameter, Timer}
+import io.qross.time.Timer
+import io.qross.ext.Parameter
+
 import scala.collection.mutable.ArrayBuffer
 
 class JDBC(connectionName: String = "") {

@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import io.qross.jdbc.DataType
 import io.qross.jdbc.DataType.DataType
 import io.qross.net.Json
-import io.qross.util.DateTime
+import io.qross.time.DateTime
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
