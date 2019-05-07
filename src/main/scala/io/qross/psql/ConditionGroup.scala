@@ -2,21 +2,21 @@ package io.qross.psql
 
 import java.util.regex.Matcher
 
-import io.qross.jdbc.DataSource
+import io.qross.core.DataHub
 import io.qross.ext.Output
 import io.qross.psql.Patterns._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-class ConditionGroup(statement: Statement, expression: String) {
+class ConditionGroup(expression: String) {
 
     private val conditions = new ArrayBuffer[Condition]()
     private val ins = new ArrayBuffer[String]()
     private val exists = new ArrayBuffer[String]()
     private val selects = new ArrayBuffer[String]()
 
-    def evalAll(ds: DataSource): Boolean = {
+    def evalAll(statement: Statement, dh: DataHub): Boolean = {
 
         //解析表达式
         var exp = statement.parseExpressions(expression)
@@ -57,7 +57,7 @@ class ConditionGroup(statement: Statement, expression: String) {
         //IN (SELECT ...)
         val selectResult = new ArrayBuffer[String]
         for (select <- selects) {
-            selectResult += ds.executeSingleList(this.statement.parseVariablesAndFunctions(select, false)).mkString(",")
+            selectResult += dh.executeSingleList(statement.parseVariablesAndFunctions(select, false)).mkString(",")
         }
 
         for (condition <- this.conditions) {

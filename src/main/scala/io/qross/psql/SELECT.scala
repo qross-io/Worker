@@ -2,7 +2,7 @@ package io.qross.psql
 
 import scala.util.{Failure, Success, Try}
 
-class QuerySentence(statement: Statement, val sentence: String, val name: String, val resultType: String, val retry: String) {
+class SELECT(statement: Statement, val sentence: String, val name: String, val resultType: String, val retry: String) {
 
     var retryLimit = 0
 

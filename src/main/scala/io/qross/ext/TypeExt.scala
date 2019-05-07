@@ -1,5 +1,7 @@
 package io.qross.ext
 
+import java.util.regex.{Matcher, Pattern}
+
 import io.qross.core.DataCell
 import io.qross.setting.Global
 import io.qross.time.Timer
@@ -175,6 +177,20 @@ object TypeExt {
             }
         }
 
+        def $replace(regex: String, newChar: String): String = {
+            val p = Pattern.compile(regex)
+            var m: Matcher = null
+            if ({m = p.matcher(newChar); m}.find()) {
+                p.matcher(string).replaceAll(newChar)
+            }
+            else {
+                while ({m = p.matcher(string); m}.find()) {
+                    string = m.replaceAll(newChar)
+                }
+                string
+            }
+        }
+
         def bash(): Int = {
             val exitValue = string.!(ProcessLogger(out => {
                 println(out)
@@ -222,6 +238,26 @@ object TypeExt {
             }
 
             f"$size%.2f${units(i)}"
+        }
+    }
+
+    implicit class FloatExt(float: Float) {
+        def floor(precision: Int = 0): Double = {
+            Math.floor(float * Math.pow(10, precision)) / Math.pow(10, precision)
+        }
+
+        def round(precision: Int = 0): Double = {
+            Math.round(float * Math.pow(10, precision)) / Math.pow(10, precision)
+        }
+    }
+
+    implicit class DoubleExt(double: Double) {
+        def floor(precision: Int = 0): Double = {
+            Math.floor(double * Math.pow(10, precision)) / Math.pow(10, precision)
+        }
+
+        def round(precision: Int = 0): Double = {
+            Math.round(double * Math.pow(10, precision)) / Math.pow(10, precision)
         }
     }
 }

@@ -156,8 +156,10 @@ case class DataTable(private val items: DataRow*) {
 
         table
     }
-    
+
+    def size: Int = rows.size
     def count(): Int = rows.size
+    def columnCount: Int = fields.size
     
     def count(groupBy: String*): DataTable = {
         val table = DataTable()

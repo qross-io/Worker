@@ -3,7 +3,7 @@ package io.qross.core
 import java.io.File
 
 import io.qross.fs._
-import io.qross.jdbc.DataSource
+import io.qross.jdbc.{DataSource, JDBC}
 import io.qross.jdbc.DataType.DataType
 import io.qross.net.{Email, HttpClient, Json}
 import io.qross.setting.Global
@@ -92,12 +92,22 @@ class DataHub () {
         this
     }
     
-    def open(connectionName: String, database: String = ""): DataHub = {
+    def open(connectionNameOrDataSource: Any, database: String = ""): DataHub = {
         reset()
-        if (!SOURCES.contains(connectionName)) {
-            SOURCES += connectionName -> new DataSource(connectionName, database)
+        connectionNameOrDataSource match {
+            case connectionName: String =>
+                    if (!SOURCES.contains(connectionName)) {
+                        SOURCES += connectionName -> new DataSource(connectionName, database)
+                    }
+                    CURRENT = SOURCES(connectionName)
+            case dataSource: DataSource =>
+                if (!SOURCES.contains(dataSource.connectionName)) {
+                    SOURCES += dataSource.connectionName -> dataSource
+                }
+                CURRENT = dataSource
+            case _ => throw new Exception("Unsupported data source parameter format, only support String or DataSource")
         }
-        CURRENT = SOURCES(connectionName)
+
         this
     }
 
@@ -1404,9 +1414,11 @@ class DataHub () {
     }
     
     // ---------- dataSource ----------
-  
+
+    def executeMapList(SQL: String, values: Any*): List[Map[String, Any]] = CURRENT.executeMapList(SQL, values: _*)
     def executeDataTable(SQL: String, values: Any*): DataTable = CURRENT.executeDataTable(SQL, values: _*)
     def executeDataRow(SQL: String, values: Any*): DataRow = CURRENT.executeDataRow(SQL, values: _*)
+    def executeSingleList(SQL: String, values: Any*): List[String] = CURRENT.executeSingleList(SQL, values: _*)
     def executeSingleValue(SQL: String, values: Any*): Option[String] = CURRENT.executeSingleValue(SQL, values: _*)
     def executeExists(SQL: String, values: Any*): Boolean = CURRENT.executeExists(SQL, values: _*)
     def executeNonQuery(SQL: String, values: Any*): Int = CURRENT.executeNonQuery(SQL, values: _*)

@@ -7,9 +7,7 @@ import io.qross.ext.TypeExt._
 
 import scala.collection.mutable.ArrayBuffer
 
-class ForInLoop(statement: Statement, var forItems: String, forCollection: String, var delimiter: String) {
-
-    delimiter = delimiter.removeQuotes()
+class FOR$IN(var forItems: String, forCollection: String, val delimiter: String) {
 
     val fields = new ArrayBuffer[String]()
     val separators = new ArrayBuffer[String]()
@@ -36,9 +34,9 @@ class ForInLoop(statement: Statement, var forItems: String, forCollection: Strin
         separators += ""
     }
 
-    def computeMap(): ForLoopVariables = {
+    def computeMap(statement: Statement): ForLoopVariables = {
         val variablesMaps = new ForLoopVariables
-        val collection = statement.parseStandardSentence(this.forCollection).split(this.delimiter, -1)
+        val collection = statement.parseStandardSentence(this.forCollection).split(delimiter, -1)
         for (l <- collection) {
             var line = l
             val row = new DataRow()

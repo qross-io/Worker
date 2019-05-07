@@ -1,10 +1,10 @@
 package io.qross.psql
 
-import io.qross.jdbc.DataSource
+import io.qross.core.DataHub
 import io.qross.ext.TypeExt._
 import io.qross.psql.Patterns._
 
-class SetVariable(statement: Statement, var variable: String, expression: String) {
+class SET(var variable: String, expression: String) {
 
     this.variable = variable.removeVariableModifier()
     if (variable.contains(",")) {
@@ -13,7 +13,7 @@ class SetVariable(statement: Statement, var variable: String, expression: String
         }
     }
 
-    def assign(ds: DataSource): Unit = { //1. SELECT查询  - 以SELECT开头 - 需要解析$开头的变量和函数
+    def assign(PSQL: PSQL, statement: Statement, dh: DataHub): Unit = { //1. SELECT查询  - 以SELECT开头 - 需要解析$开头的变量和函数
         //2. 非SELECT查询 - 以INSERT,UPDATE,DELETE开头 - 需要解析$开头的变量和函数
         //3. 字符串赋值或连接 - 用双引号包含，变量和内部函数需要加$前缀 - 需要解析$开头的变量和函数
         //4. 执行函数 - 以函数名开头，不需要加$前缀 - 直接执行函数
@@ -26,21 +26,21 @@ class SetVariable(statement: Statement, var variable: String, expression: String
             }
 
             val names = variable.split(",")
-            val values = ds.executeDataRow(expression).getValues
+            val values = dh.executeDataRow(expression).getValues
             for (i <- names.indices) {
                 //vars.put(names[i].trim(), i < row.size() ? (row.get(i) != null ? row.get(i).toString() : "null") : ""); 旧代码，这里出过NULL bug
-                //this.statement.PSQL.updateVariableValue(names[i], row.contains(names[i]) ? row.getObject(names[i]) : "null"); 旧代码，这里出过null bug
-                this.statement.PSQL.updateVariableValue(names(i).trim, if (i < values.length) values(i) else "null")
+                //PSQL.updateVariableValue(names[i], row.contains(names[i]) ? row.getObject(names[i]) : "null"); 旧代码，这里出过null bug
+                PSQL.updateVariableValue(names(i).trim, if (i < values.length) values(i) else "null")
             }
         }
         else if ($NON_QUERY.matcher(expression).find) { //INSERT + UPDATE + DELETE
             if (expression.contains("$")) {
                 expression = statement.parseQuerySentence(expression)
             }
-            this.statement.PSQL.updateVariableValue(variable, ds.executeNonQuery(expression))
+            PSQL.updateVariableValue(variable, dh.executeNonQuery(expression))
         }
         else { //其他，以标准表达式处理
-            this.statement.PSQL.updateVariableValue(variable, statement.parseStandardSentence(expression))
+            PSQL.updateVariableValue(variable, statement.parseStandardSentence(expression))
         }
     }
 }

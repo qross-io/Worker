@@ -12,39 +12,39 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.control.Breaks._
 
-class Statement(val PSQL: PSQL, var caption: String, var sentence: String, expressions: String*) {
+class Statement(val caption: String, val sentence: String = "", val instance: AnyRef = null) {
 
-    var instance: Any = _
     //表示控制语句是否闭合, 用于解析检查
-    var closed: Boolean = true
+    //var closed: Boolean = true
     //所有子语句
     val statements = new ArrayBuffer[Statement]()
 
     //局部变量列表，对于root，则表示全局变量
     private val variables = new DataRow()
 
-    caption match {
-        case "ROOT" =>            
-        case "IF" =>
-            this.instance = new IfElse(this, expressions(0))
-        case "ELSE_IF" =>
-            this.instance = new IfElse(this, expressions(0))
-        case "ELSE" =>
-        case "END_IF" =>
-        case "FOR_SELECT" =>
-            this.instance = new ForSelectLoop(this, expressions(0), expressions(1))
-        case "FOR_IN" =>
-            this.instance = new ForInLoop(this, expressions(0), expressions(1), expressions(2))
-        case "FOR_TO" =>
-            this.instance = new ForToLoop(this, expressions(0), expressions(1), expressions(2))
-        case "WHILE" =>
-            this.instance = new WhileLoop(this, expressions(0))
-        case "END_LOOP" =>
-        case "SET" =>
-            this.instance = new SetVariable(this, expressions(0), expressions(1))
-        case _ =>
-            this.instance = new QuerySentence(this, expressions(0), expressions(1), expressions(2), expressions(3))
-    }
+    /*
+    this.instance =  caption match {
+        //case "ROOT" | "ELSE" | "END_IF" | "END_LOOP" => null
+        //case "IF" => new IF$ELSE(this, expressions(0))
+        //case "ELSE_IF" => new IF$ELSE(this, expressions(0))
+        //case "FOR_SELECT" => new FOR$SELECT(this, expressions(0), expressions(1))
+        //case "FOR_IN" => new FOR$IN(this, expressions(0), expressions(1), expressions(2))
+        //case "FOR_TO" => new FOR$TO(this, expressions(0), expressions(1), expressions(2))
+        //case "WHILE" => new WHILE(this, expressions(0))
+        case "SET" => new SET(this, expressions(0), expressions(1))
+        case "OPEN" => new QUALIFY(this, expressions(0), expressions(1), expressions(2))
+        case "SAVE" => new SAVE()
+        case "CACHE" => new CACHE()
+        case "TEMP" => new TEMP()
+        case "GET" => new GET()
+        case "PASS" => new PASS()
+        case "PUT" => new PUT()
+        case "OUT" => new OUT()
+        case "PRINT" => new PRINT()
+        case "LIST" => new LIST()
+        case "SELECT" => new SELECT(this, expressions(0), expressions(1), expressions(2), expressions(3))
+        case _ => new NON$QUERY()
+    } */
 
     def containsVariable(name: String): Boolean = this.variables.contains(name)
 
@@ -187,6 +187,7 @@ class Statement(val PSQL: PSQL, var caption: String, var sentence: String, expre
             worked += parsed.substring(0, parsed.indexOf(m.group))
             parsed = parsed.substring(parsed.indexOf(m.group) + m.group.length)
 
+            /* 待恢复
             val result = this.PSQL.findVariableValue(m.group(1))
             var replacement: String = null
             if (result != null) {
@@ -201,6 +202,7 @@ class Statement(val PSQL: PSQL, var caption: String, var sentence: String, expre
             else {
                 worked += m.group
             }
+            */
         }
 
         worked + parsed

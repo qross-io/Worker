@@ -41,14 +41,15 @@ object Patterns {
     val $FUNCTION: Pattern = Pattern.compile("\\$\\{?(" + Function.NAMES.mkString("|") + ")\\s*\\(", Pattern.CASE_INSENSITIVE)
     val $VARIABLE: Pattern = Pattern.compile("""\$\{?([a-z_][a-z0-9_]*)}?""", Pattern.CASE_INSENSITIVE)
 
-    //new sentence
-    val $OPEN: Pattern = Pattern.compile("""^OPEN\s+(\S+)\s*:?""", Pattern.CASE_INSENSITIVE)
-    val $SAVE_AS: Pattern = Pattern.compile("""^SAVE\s*AS\s+(CACHE\s+TABLE|TEMP\s+TABLE)?\s+(\S+)\s*:?""", Pattern.CASE_INSENSITIVE)
+    //v0.5.9
+    val $OPEN: Pattern = Pattern.compile("""^OPEN\s+((\S+\s+)*?)(\S+)(\s+USE\s+(\S+))?\s*(:|$)""", Pattern.CASE_INSENSITIVE)
+    val $USE: Pattern = Pattern.compile("""^USE\s+(\S+)$""")
+    val $SAVE_AS: Pattern = Pattern.compile("""^SAVE\s*AS\s+((\S+\s+)*?)(\S+)(\s+USE\s+(\S+))?\s*:?$""", Pattern.CASE_INSENSITIVE)
     val $CACHE: Pattern = Pattern.compile("""^CACHE\s+(\S+)#""", Pattern.CASE_INSENSITIVE)
     val $TEMP: Pattern = Pattern.compile("""^TEMP\s+(\S+)#""", Pattern.CASE_INSENSITIVE)
-    val $GET: Pattern = Pattern.compile("""^GET\s+(\S+)#""", Pattern.CASE_INSENSITIVE)
-    val $PASS: Pattern = Pattern.compile("""^PASS\s+(\S+)#""", Pattern.CASE_INSENSITIVE)
-    val $PUT: Pattern = Pattern.compile("""^PUT\s+(\S+)#""", Pattern.CASE_INSENSITIVE)
+    val $GET: Pattern = Pattern.compile("""^GET\s*#""", Pattern.CASE_INSENSITIVE)
+    val $PASS: Pattern = Pattern.compile("""^PASS\s*#""", Pattern.CASE_INSENSITIVE)
+    val $PUT: Pattern = Pattern.compile("""^PUT\s*#""", Pattern.CASE_INSENSITIVE)
     val $OUT: Pattern = Pattern.compile("""^OUT\s+(LIST|SINGLE|MAP|AFFECTED)?\s+(\S+)#""", Pattern.CASE_INSENSITIVE)
     val $PRINT: Pattern = Pattern.compile("""^PRINT\s+(.+)""", Pattern.CASE_INSENSITIVE)
     val $LIST: Pattern = Pattern.compile("""^LIST\s+(\d+)""", Pattern.CASE_INSENSITIVE)
