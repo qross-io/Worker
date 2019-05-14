@@ -1,5 +1,5 @@
 package io.qross.psql
 
-class PASS(val selectSQL: String) {
+case class PASS(val selectSQL: String) {
 
 }

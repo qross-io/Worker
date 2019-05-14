@@ -403,9 +403,11 @@ class DataSet(defaultSourceName: String = DataSource.DEFAULT) {
     
     
     // ---------- dataSource ----------
-  
+
+    def executeMapList(SQL: String, values: Any*): List[Map[String, Any]] = CURRENT.executeMapList(SQL, values: _*)
     def executeDataTable(SQL: String, values: Any*): DataTable = CURRENT.executeDataTable(SQL, values: _*)
     def executeDataRow(SQL: String, values: Any*): DataRow = CURRENT.executeDataRow(SQL, values: _*)
+    def executeSingleList(SQL: String, values: Any*): List[String] = CURRENT.executeSingleList(SQL, values: _*)
     def executeSingleValue(SQL: String, values: Any*): Option[String] = CURRENT.executeSingleValue(SQL, values: _*)
     def executeExists(SQL: String, values: Any*): Boolean = CURRENT.executeExists(SQL, values: _*)
     def executeNonQuery(SQL: String, values: Any*): Int = CURRENT.executeNonQuery(SQL, values: _*)

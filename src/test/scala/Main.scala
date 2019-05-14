@@ -8,6 +8,10 @@ object Main {
 
     def main(args: Array[String]): Unit = {
 
+        //println(PASS.getClass.getMethod("a").invoke(null))
+        println(Class.forName("io.qross.psql.PASS").newInstance().getClass.getMethod("a").invoke(null))
+
+        System.exit(0)
         //val SQL = """select * from abc""".stripMargin
         //println(SQL.takeAfter(""))
         //println(SQL.takeAfter("""\sF""".r))

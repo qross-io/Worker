@@ -22,30 +22,6 @@ class Statement(val caption: String, val sentence: String = "", val instance: An
     //局部变量列表，对于root，则表示全局变量
     private val variables = new DataRow()
 
-    /*
-    this.instance =  caption match {
-        //case "ROOT" | "ELSE" | "END_IF" | "END_LOOP" => null
-        //case "IF" => new IF$ELSE(this, expressions(0))
-        //case "ELSE_IF" => new IF$ELSE(this, expressions(0))
-        //case "FOR_SELECT" => new FOR$SELECT(this, expressions(0), expressions(1))
-        //case "FOR_IN" => new FOR$IN(this, expressions(0), expressions(1), expressions(2))
-        //case "FOR_TO" => new FOR$TO(this, expressions(0), expressions(1), expressions(2))
-        //case "WHILE" => new WHILE(this, expressions(0))
-        case "SET" => new SET(this, expressions(0), expressions(1))
-        case "OPEN" => new QUALIFY(this, expressions(0), expressions(1), expressions(2))
-        case "SAVE" => new SAVE()
-        case "CACHE" => new CACHE()
-        case "TEMP" => new TEMP()
-        case "GET" => new GET()
-        case "PASS" => new PASS()
-        case "PUT" => new PUT()
-        case "OUT" => new OUT()
-        case "PRINT" => new PRINT()
-        case "LIST" => new LIST()
-        case "SELECT" => new SELECT(this, expressions(0), expressions(1), expressions(2), expressions(3))
-        case _ => new NON$QUERY()
-    } */
-
     def containsVariable(name: String): Boolean = this.variables.contains(name)
 
     def getVariable(name: String): DataCell = this.variables.getCell(name)

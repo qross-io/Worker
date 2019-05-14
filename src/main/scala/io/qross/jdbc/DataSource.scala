@@ -556,7 +556,7 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
             })
         }
         else {
-            val param = Parameter(SQL)
+            val param = PlaceHolder.PARAMETERS.in(SQL)
             if (param.matched) {
                 table.foreach(row => {
                     result.merge(this.executeDataTable(param.replaceWith(row)))
@@ -582,7 +582,7 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
                 count = this.executeBatchUpdate()
             }
             else {
-                val param = Parameter(SQL)
+                val param = PlaceHolder.PARAMETERS.in(SQL)
                 if (param.matched) {
                     table.foreach(row => {
                         this.addBatchCommand(param.replaceWith(row))

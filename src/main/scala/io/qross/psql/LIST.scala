@@ -1,5 +1,5 @@
 package io.qross.psql
 
-class LIST {
+class LIST(val rows: Int) {
 
 }

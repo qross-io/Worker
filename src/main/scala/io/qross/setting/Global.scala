@@ -1,6 +1,7 @@
 package io.qross.setting
 
 import io.qross.ext.TypeExt._
+import io.qross.time.DateTime
 
 object Global {
 
@@ -8,7 +9,7 @@ object Global {
 
     def QROSS_SYSTEM: String = Configurations.get("QROSS_SYSTEM").toUpperCase() //current system name, worker/keeper/monitor
 
-    val CORES: Int = Runtime.getRuntime.availableProcessors
+    def CORES: Int = Runtime.getRuntime.availableProcessors
 
     def COMPANY_NAME: String = Configurations.getOrProperty("COMPANY_NAME", "company.name")
 
@@ -87,4 +88,10 @@ object Global {
     def KRB_KEYTAB_PATH: String = Configurations.getOrProperty("KRB_KEYTAB_PATH", "krb.keytab.path")
 
     def KRB_KRB5CONF_PATH: String = Configurations.getOrProperty("KRB_KRB5CONF_PATH", "krb.krb5conf.path")
+
+    def NOW: DateTime = DateTime.now
+
+    def TODAY: DateTime = DateTime.now.setZeroOfDay()
+
+    def YESTERDAY: DateTime = DateTime.now.minusDays(1).setZeroOfDay()
 }

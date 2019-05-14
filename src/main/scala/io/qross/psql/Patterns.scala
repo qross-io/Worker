@@ -50,7 +50,7 @@ object Patterns {
     val $GET: Pattern = Pattern.compile("""^GET\s*#""", Pattern.CASE_INSENSITIVE)
     val $PASS: Pattern = Pattern.compile("""^PASS\s*#""", Pattern.CASE_INSENSITIVE)
     val $PUT: Pattern = Pattern.compile("""^PUT\s*#""", Pattern.CASE_INSENSITIVE)
-    val $OUT: Pattern = Pattern.compile("""^OUT\s+(LIST|SINGLE|MAP|AFFECTED)?\s+(\S+)#""", Pattern.CASE_INSENSITIVE)
+    val $OUT: Pattern = Pattern.compile("""^OUT\s+(SINGLE|MAP|LIST|AFFECTED)?\s+(\S+)\s*#""", Pattern.CASE_INSENSITIVE)
     val $PRINT: Pattern = Pattern.compile("""^PRINT\s+(.+)""", Pattern.CASE_INSENSITIVE)
     val $LIST: Pattern = Pattern.compile("""^LIST\s+(\d+)""", Pattern.CASE_INSENSITIVE)
 }

@@ -14,7 +14,7 @@ object Pager {
 
 class Pager(source: DataSource,
             selectSQL: String,
-            param: String = "@offset",
+            param: String = "#offset",
             pageSize: Int = 10000, tanks: Int = 3) extends Thread {
 
     //线程创建时加1 - 在线程内部判断时使用

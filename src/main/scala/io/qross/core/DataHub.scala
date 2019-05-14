@@ -768,7 +768,7 @@ class DataHub () {
             println(selectSQL)
         }
 
-        PlaceHolder("@").findIn(selectSQL) match {
+        PlaceHolder.PARAMETERS.in(selectSQL).first match {
             case Some(param) => pageSQLs += selectSQL -> param
             case None => TABLE.merge(CURRENT.executeDataTable(selectSQL))
         }
@@ -792,11 +792,21 @@ class DataHub () {
             println(selectSQL)
         }
 
-        PlaceHolder("@").findIn(selectSQL) match {
+        PlaceHolder.PARAMETERS.in(selectSQL).first match {
             case Some(param) => blockSQLs +=
                 selectSQL -> (param,
-                             if (beginKeyOrSQL.isInstanceOf[String]) CURRENT.executeDataRow(beginKeyOrSQL.asInstanceOf[String]).getFirstLong() else if (beginKeyOrSQL.isInstanceOf[Int]) beginKeyOrSQL.asInstanceOf[Int].toLong else beginKeyOrSQL.asInstanceOf[Long],
-                             if (endKeyOrSQL.isInstanceOf[String]) CURRENT.executeDataRow(endKeyOrSQL.asInstanceOf[String]).getFirstLong() else if (endKeyOrSQL.isInstanceOf[Int]) endKeyOrSQL.asInstanceOf[Int].toLong else endKeyOrSQL.asInstanceOf[Long],
+                             beginKeyOrSQL match {
+                                 case sentence: String => CURRENT.executeDataRow(sentence).getFirstLong()
+                                 case key: Long => key
+                                 case key: Int => key.toLong
+                                 case _ => beginKeyOrSQL.toString.toLong
+                             },
+                             endKeyOrSQL match {
+                                 case sentence: String => CURRENT.executeDataRow(sentence).getFirstLong()
+                                 case key: Long => key
+                                 case key: Int => key.toLong
+                                 case _ => endKeyOrSQL.toString.toLong
+                             },
                              blockSize)
             case None => TABLE.merge(CURRENT.executeDataTable(selectSQL))
         }
@@ -805,19 +815,30 @@ class DataHub () {
     }
 
     //多线程执行同一条更新语句, beginKeyOrSQL为整数时左开右闭, 为SQL时左闭右闭
+    //初始设计目的是解决tidb不能大批量更新的问题, 只能按块更新
     def bulk(nonQuerySQL: String, beginKeyOrSQL: Any, endKeyOrSQL: Any, bulkSize: Int = 100000): DataHub = {
 
         if (DEBUG) {
             println(nonQuerySQL)
         }
 
-        PlaceHolder("@").findIn(nonQuerySQL) match {
+        PlaceHolder.PARAMETERS.in(nonQuerySQL).first match {
             case Some(param) =>
-                    var begin = if (beginKeyOrSQL.isInstanceOf[String]) CURRENT.executeDataRow(beginKeyOrSQL.asInstanceOf[String]).getFirstLong() - 1 else if (beginKeyOrSQL.isInstanceOf[Int]) beginKeyOrSQL.asInstanceOf[Int].toLong else beginKeyOrSQL.asInstanceOf[Long]
-                    val end = if (endKeyOrSQL.isInstanceOf[String]) CURRENT.executeDataRow(endKeyOrSQL.asInstanceOf[String]).getFirstLong() else if (endKeyOrSQL.isInstanceOf[Int]) endKeyOrSQL.asInstanceOf[Int].toLong else endKeyOrSQL.asInstanceOf[Long]
+                    var begin = beginKeyOrSQL match {
+                        case sentence: String => CURRENT.executeDataRow(sentence).getFirstLong() - 1
+                        case key: Int => key.toLong
+                        case key: Long => key
+                        case _ => beginKeyOrSQL.toString.toLong
+                    }
+                    val end = endKeyOrSQL match {
+                        case sentence: String => CURRENT.executeDataRow(sentence).getFirstLong()
+                        case key: Int => key.toLong
+                        case key: Long => key
+                        case _ => beginKeyOrSQL.toString.toLong
+                    }
 
                     while (begin < end) {
-                        Bulker.QUEUE.add(nonQuerySQL.replaceFirst("@" + param, begin.toString).replace("@" + param, (if (begin + bulkSize >= end) end else begin + bulkSize).toString))
+                        Bulker.QUEUE.add(nonQuerySQL.replaceFirst(param, begin.toString).replace(param, (if (begin + bulkSize >= end) end else begin + bulkSize).toString))
                         begin += bulkSize
                     }
 
@@ -835,7 +856,6 @@ class DataHub () {
 
         this
     }
-
 
 
     def join(selectSQL: String, on: (String, String)*): DataHub = {
@@ -935,16 +955,16 @@ class DataHub () {
 
         //生产者
         for ((selectSQL, param) <- pageSQLs) {
-            if (param.equalsIgnoreCase("offset")) {
+            if (param.toLowerCase().contains("offset")) {
                 //offset
-                val pageSize = "\\d+".r.findFirstMatchIn(selectSQL.substring(selectSQL.indexOf("@" + param) + 7)) match {
+                val pageSize = "\\d+".r.findFirstMatchIn(selectSQL.substring(selectSQL.indexOf(param) + param.length)) match {
                     case Some(ps) => ps.group(0).toInt
                     case None => 10000
                 }
 
                 //producer
                 for (i <- 0 until LINES) { //Global.CORES
-                    parallel.add(new Pager(CURRENT, selectSQL, "@" + param, pageSize, TANKS))
+                    parallel.add(new Pager(CURRENT, selectSQL, param, pageSize, TANKS))
                 }
             }
         }
@@ -956,12 +976,12 @@ class DataHub () {
             var i = if (config._2 == 0) 0 else config._2 - 1
             while (i < config._3) {
                 var SQL = selectSQL
-                SQL = s"@${config._1}".r.replaceFirstIn(SQL, i.toString)
+                SQL = SQL.replaceFirst(config._1, i.toString)
                 i += config._4
                 if (i > config._3) {
                     i = config._3
                 }
-                SQL = s"@${config._1}".r.replaceFirstIn(SQL, i.toString)
+                SQL = SQL.replaceFirst(config._1, i.toString)
                 Blocker.QUEUE.add(SQL)
             }
 
@@ -999,9 +1019,9 @@ class DataHub () {
     private def stream(handler: DataTable => Unit): Unit = {
 
         for ((selectSQL, param) <- pageSQLs) {
-            if (param.equalsIgnoreCase("offset")) {
+            if (param.toLowerCase().contains("offset")) {
                 //offset
-                val pageSize = "\\d+".r.findFirstMatchIn(selectSQL.substring(selectSQL.indexOf("@" + param) + 7)) match {
+                val pageSize = "\\d+".r.findFirstMatchIn(selectSQL.substring(selectSQL.indexOf(param) + param.length)) match {
                     case Some(ps) => ps.group(0).toInt
                     case None => 10000
                 }
@@ -1009,7 +1029,7 @@ class DataHub () {
                 val parallel = new Parallel()
                 //producer
                 for (i <- 0 until LINES) {  //Global.CORES
-                    parallel.add(new Pager(CURRENT, selectSQL, "@" + param, pageSize, TANKS))
+                    parallel.add(new Pager(CURRENT, selectSQL, param, pageSize, TANKS))
                 }
                 parallel.startAll()
                 //consumer
@@ -1050,7 +1070,7 @@ class DataHub () {
                 var id = 0L //primaryKey
                 var continue = true
                 do {
-                    val table = CURRENT.executeDataTable(selectSQL.replace("@" + param, String.valueOf(id)))
+                    val table = CURRENT.executeDataTable(selectSQL.replace(param, String.valueOf(id)))
                     $TOTAL += table.count()
                     $COUNT = table.count()
                     if (table.nonEmpty) {
@@ -1082,12 +1102,12 @@ class DataHub () {
             var i = if (config._2 == 0) 0 else config._2 - 1
             while (i < config._3) {
                 var SQL = selectSQL
-                SQL = s"@${config._1}".r.replaceFirstIn(SQL, i.toString)
+                SQL = SQL.replaceFirst(config._1, i.toString)
                 i += config._4
                 if (i > config._3) {
                     i = config._3
                 }
-                SQL = s"@${config._1}".r.replaceFirstIn(SQL, i.toString)
+                SQL = SQL.replaceFirst(config._1, i.toString)
                 Blocker.QUEUE.add(SQL)
             }
 
