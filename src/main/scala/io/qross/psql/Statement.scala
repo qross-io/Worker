@@ -69,10 +69,16 @@ class Statement(val caption: String, val sentence: String = "", val instance: An
     //解析查询语句中的表达式
     def parseExpressions(sentence: String): String = {
         var parsed = sentence
-        val m = $EXPRESSION.matcher(parsed)
+        val m = $JS_EXPRESSION.matcher(parsed)
         while (m.find) {
             parsed = parsed.replace(m.group(0), parseSingleExpression(m.group(1), false))
         }
+
+        val n = $JS_STATEMENT.matcher(parsed)
+        while (n.find) {
+            parsed = parsed.replace(m.group(0), parseSingleExpression(m.group(1), false))
+        }
+
         parsed
     }
 
@@ -163,7 +169,6 @@ class Statement(val caption: String, val sentence: String = "", val instance: An
             worked += parsed.substring(0, parsed.indexOf(m.group))
             parsed = parsed.substring(parsed.indexOf(m.group) + m.group.length)
 
-            /* 待恢复
             val result = this.PSQL.findVariableValue(m.group(1))
             var replacement: String = null
             if (result != null) {
@@ -178,7 +183,6 @@ class Statement(val caption: String, val sentence: String = "", val instance: An
             else {
                 worked += m.group
             }
-            */
         }
 
         worked + parsed

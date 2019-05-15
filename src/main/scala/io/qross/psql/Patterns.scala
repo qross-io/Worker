@@ -37,7 +37,9 @@ object Patterns {
     val $SELECT: Pattern = Pattern.compile("^SELECT\\s", Pattern.CASE_INSENSITIVE)
     val $NON_QUERY: Pattern = Pattern.compile("^(INSERT|UPDATE|DELETE)\\s", Pattern.CASE_INSENSITIVE)
 
-    val $EXPRESSION: Pattern = Pattern.compile("""\$\{\{(.+?)}}""", Pattern.CASE_INSENSITIVE)
+    val $JS_EXPRESSION: Pattern = Pattern.compile("""\~\{(.+?)}""", Pattern.CASE_INSENSITIVE)
+    val $JS_STATEMENT: Pattern = Pattern.compile("""\~\{\{(.+?)}}""", Pattern.CASE_INSENSITIVE)
+
     val $FUNCTION: Pattern = Pattern.compile("\\$\\{?(" + Function.NAMES.mkString("|") + ")\\s*\\(", Pattern.CASE_INSENSITIVE)
     val $VARIABLE: Pattern = Pattern.compile("""\$\{?([a-z_][a-z0-9_]*)}?""", Pattern.CASE_INSENSITIVE)
 

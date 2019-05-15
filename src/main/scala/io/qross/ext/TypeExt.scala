@@ -107,6 +107,18 @@ object TypeExt {
             //    interpreter.close()
         }
 
+        def call(): Option[DataCell] = {
+            val jse: ScriptEngine = new ScriptEngineManager().getEngineByName("JavaScript")
+            try {
+                Some(new DataCell(jse.eval(s"""(function(){ $string })()""")))
+            }
+            catch {
+                case e: ScriptException =>
+                    e.printStackTrace()
+                    None
+            }
+        }
+
         //去掉变量修饰符
         def removeVariableModifier(): String = {
             string.replace("$", "").replace("{", "").replace("}", "").trim

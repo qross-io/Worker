@@ -5,11 +5,11 @@ import io.qross.time.DateTime
 
 object Global {
 
+    val INSTANTS: Set[String] = Set("NOW", "TODAY", "YESTERDAY", "CORES")
+
     def QROSS_VERSION: String = Configurations.getOrProperty("QROSS_VERSION", "qross.version")
 
     def QROSS_SYSTEM: String = Configurations.get("QROSS_SYSTEM").toUpperCase() //current system name, worker/keeper/monitor
-
-    def CORES: Int = Runtime.getRuntime.availableProcessors
 
     def COMPANY_NAME: String = Configurations.getOrProperty("COMPANY_NAME", "company.name")
 
@@ -79,7 +79,7 @@ object Global {
 
     def BEATS_MAILING_FREQUENCY: String = Configurations.getOrProperty("BEATS_MAILING_FREQUENCY", "beats.mailing_frequency")
 
-    val EXCEL_TEMPLATES_PATH: String = Configurations.getOrProperty("EXCEL_TEMPLATES_PATH", "excel.templates.path")
+    def EXCEL_TEMPLATES_PATH: String = Configurations.getOrProperty("EXCEL_TEMPLATES_PATH", "excel.templates.path")
 
     def KERBEROS_AUTH: Boolean = Configurations.getOrProperty("KERBEROS_AUTH", "kerberos.auth").toBooleanOrElse(false)
 
@@ -88,6 +88,8 @@ object Global {
     def KRB_KEYTAB_PATH: String = Configurations.getOrProperty("KRB_KEYTAB_PATH", "krb.keytab.path")
 
     def KRB_KRB5CONF_PATH: String = Configurations.getOrProperty("KRB_KRB5CONF_PATH", "krb.krb5conf.path")
+
+    def CORES: Int = Runtime.getRuntime.availableProcessors
 
     def NOW: DateTime = DateTime.now
 

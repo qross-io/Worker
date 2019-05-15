@@ -62,6 +62,7 @@ class Condition(var expression: String) {
     if ($IS.matcher(expression).find) {
         expression = " " + expression
     }
+
     private val m: Matcher = $OPERATOR.matcher(expression)
     if (m.find) {
         this.operator = m.group

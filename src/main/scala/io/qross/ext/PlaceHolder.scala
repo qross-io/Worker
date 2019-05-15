@@ -1,11 +1,12 @@
 package io.qross.ext
 
-import io.qross.core.DataRow
+import io.qross.core.{DataCell, DataRow}
 import io.qross.jdbc.DataType
 
 import scala.collection.mutable
 import scala.util.matching.Regex.Match
 import io.qross.ext.TypeExt._
+import io.qross.psql.SQLExecuteException
 
 /*
 
@@ -37,7 +38,7 @@ object PlaceHolder {
     def SHARP_EXPRESSIONS: PlaceHolder = new PlaceHolder(s"""${}""") //未完成, Sharp表达式
     def GLOBAL_VARIABLES: PlaceHolder = new PlaceHolder("""@\(?([a-zA-Z_][a-zA-Z0-9_]+)\)?""") //全局变量
     def SYSTEM_FUNCTIONS: PlaceHolder = new PlaceHolder("@func") //未完成, 系统函数
-    def JS_EXPRESSIONS: PlaceHolder = new PlaceHolder("""~{}""") //未完成, js表达式
+    def JS_EXPRESSIONS: PlaceHolder = new PlaceHolder("""\~\{(.+?)}""", """\~\{\{(.+?)}}""") //js表达式和js语句块
 }
 
 class PlaceHolder(regex: String*) {
@@ -113,5 +114,27 @@ class PlaceHolder(regex: String*) {
         replacement = replacement.replace("&&", "&")
 
         replacement
+    }
+
+    //适用于js表达式和语句块
+    def eval(retainQuotes: Boolean = false): DataCell = {
+        var replacement = this.sentence
+
+        matches.foreach(m => {
+            { if (m.group(0).startsWith("~{{")) m.group(1).call() else m.group(1).eval() } match {
+                case Some(data) =>
+                    replacement = replacement.replace(m.group(0),
+                                        if (retainQuotes && data.dataType == DataType.TEXT) {
+                                            data.value.toString.useQuotes()
+                                        }
+                                        else {
+                                            data.value.toString
+                                        })
+                case None => throw new SQLExecuteException(s"{ Wrong js expression or statement: ${m.group(0)}}")
+            }
+        })
+
+        //replacement
+        new DataCell("")
     }
 }

@@ -2,13 +2,12 @@ package io.qross.psql
 
 import io.qross.core.DataRow
 import io.qross.jdbc.{DataSource, JDBC}
-import io.qross.setting.{Global, Properties}
+import io.qross.setting.{Configurations, Global, Properties}
 import io.qross.time.DateTime
 
 object GlobalVariable {
 
-    val INSTANTS: Set[String] = Set("NOW", "TODAY")
-    val GLOBALS: Set[String] = Global.getClass.getDeclaredMethods.map(_.getName).toSet
+     val GLOBALS: Set[String] = Global.getClass.getDeclaredMethods.map(_.getName).toSet
     //除环境全局变量的其他全局变量
     val SYSTEM: DataRow = new DataRow()
     val USER: DataRow = new DataRow()
@@ -45,6 +44,9 @@ object GlobalVariable {
             group = "SYSTEM"
             SYSTEM.set(name, value)
         }
+        else if (Configurations.contains(name)) {
+            Configurations.set(name, value)
+        }
         else {
             throw new SQLExecuteException("Can't update system variable. This variable is read only.")
         }
@@ -69,12 +71,6 @@ object GlobalVariable {
         }
         else if (SYSTEM.contains(field)) {
             SYSTEM.get(field).orNull
-        }
-        else if (INSTANTS.contains(field)) {
-            field match {
-                case "NOW" => DateTime.now
-                case "TODAY" => DateTime.now.setZeroOfDay()
-            }
         }
         else if (PROGRESS.contains(field)) {
             PROGRESS.get(field).orNull

@@ -122,7 +122,7 @@ class ConditionGroup(expression: String) {
         }
     }
 
-    //解析无括号的表达式
+    //解析无括号()的表达式
     def parseBasicExpression(expression: String): Unit = {
         var m: Matcher = null
         var n: Matcher = null

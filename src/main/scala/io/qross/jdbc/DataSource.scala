@@ -102,6 +102,7 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
 
     
     def open(): Unit = {
+        //Class.forName(config.driver).newInstance()
         //检查driver
         try {
             Class.forName(config.driver).newInstance()

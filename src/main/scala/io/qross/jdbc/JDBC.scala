@@ -1,7 +1,8 @@
 package io.qross.jdbc
 
-import io.qross.setting.Properties
+import io.qross.setting.{Global, Properties}
 import io.qross.ext.Output
+import io.qross.ext.TypeExt._
 
 import scala.collection.{immutable, mutable}
 import scala.util.control.Breaks.breakable
@@ -26,7 +27,7 @@ object JDBC {
     var QrossConnectable = false
 
     val drivers: immutable.HashMap[String, String] = immutable.HashMap[String, String](
-                DBType.MySQL -> "com.mysql.cj.jdbc.Driver,com.mysql.cj.jdbc.Driver",
+                DBType.MySQL -> "com.mysql.cj.jdbc.Driver,com.mysql.jdbc.Driver",
                 DBType.SQLite -> "org.sqlite.JDBC",
                 DBType.Presto -> "com.facebook.presto.jdbc.PrestoDriver",
                 DBType.Hive -> "org.apache.hive.jdbc.HiveDriver",
@@ -62,19 +63,16 @@ object JDBC {
                 System.exit(1)
             }
             else {
-                var version = ""
+                var version: String = ""
                 try {
-                    //version = Global.QROSS_VERSION
+                    version = DataSource.querySingleValue("SELECT conf_value FROM qross_conf WHERE conf_key='QROSS_VERSION'").getOrElse("")
                     QrossConnectable = true
                 }
                 catch {
                     case e: Exception => e.printStackTrace()
                 }
 
-                if (version != "") {
-                    Output.writeMessage("Welcome to QROSS Keeper v" + version)
-                }
-                else {
+                if (version == "") {
                     Output.writeException("Can't find Qross system, please create your Qross system use Qross Master.")
                     System.exit(1)
                 }
@@ -172,8 +170,8 @@ class JDBC(var dbType: String,
     var alternativeDriver: String = ""
 
     if (driver.contains(",")) {
-        driver = driver.substring(0, driver.indexOf(","))
-        alternativeDriver = driver.substring(driver.indexOf(",") + 1)
+        alternativeDriver = driver.takeAfter(",")
+        driver = driver.takeBefore(",")
     }
 
     if (dbType == DBType.Memory) {
