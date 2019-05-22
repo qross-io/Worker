@@ -22,7 +22,7 @@ class OPEN(var sourceType: String, var source: String, var use: String = "") {
     }
     else {
         if (!Properties.contains(source)) {
-            throw new SQLParserException("Wrong connection name: " + source)
+            throw new SQLParseException("Wrong connection name: " + source)
         }
     }
 }

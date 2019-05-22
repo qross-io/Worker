@@ -1,16 +1,18 @@
 package io.qross.psql
 
+import io.qross.ext.PlaceHolder._
+
 class FOR$TO(val variable: String, rangeBegin: String, rangeEnd: String) {
 
-    def parseBegin(statement: Statement): Integer = {
-        statement.parseStandardSentence(rangeBegin).toInt
+    def parseBegin(PSQL: PSQL): Integer = {
+        rangeBegin.$eval(PSQL).toInt
     }
 
-    def parseEnd(statement: Statement): Integer = {
-        statement.parseStandardSentence(rangeEnd).toInt
+    def parseEnd(PSQL: PSQL): Integer = {
+        rangeEnd.$eval(PSQL).toInt
     }
 
-    def hasNext(PSQL: PSQL, statement: Statement): Boolean = {
-        PSQL.findVariableValue(variable).value.asInstanceOf[String].toInt <= parseEnd(statement)
+    def hasNext(PSQL: PSQL): Boolean = {
+        PSQL.findVariableValue(variable).value.asInstanceOf[String].toInt <= parseEnd(PSQL)
     }
 }

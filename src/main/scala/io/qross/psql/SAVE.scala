@@ -28,7 +28,7 @@ class SAVE(var targetType: String, var target: String, var use: String = "") {
             }
             else {
                 if (!Properties.contains(target)) {
-                    throw new SQLParserException("Wrong connection name: " + target)
+                    throw new SQLParseException("Wrong connection name: " + target)
                 }
             }
 

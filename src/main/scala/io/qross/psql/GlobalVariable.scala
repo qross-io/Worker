@@ -1,6 +1,6 @@
 package io.qross.psql
 
-import io.qross.core.DataRow
+import io.qross.core.{DataCell, DataRow}
 import io.qross.jdbc.{DataSource, JDBC}
 import io.qross.setting.{Configurations, Global, Properties}
 import io.qross.time.DateTime
@@ -64,22 +64,22 @@ object GlobalVariable {
     }
 
     //得到全局变量的值
-    def get(name: String): Any = {
+    def get(name: String): DataCell = {
         val field = name.toUpperCase()
         if (USER.contains(field)) {
-            USER.get(field).orNull
+            USER.getCell(field)
         }
         else if (SYSTEM.contains(field)) {
-            SYSTEM.get(field).orNull
+            SYSTEM.getCell(field)
         }
         else if (PROGRESS.contains(field)) {
-            PROGRESS.get(field).orNull
+            PROGRESS.getCell(field)
         }
         else if (GLOBALS.contains(field)) {
-            Global.getClass.getMethod(field).invoke(null)
+            new DataCell(Global.getClass.getMethod(field).invoke(null))
         }
         else {
-            null
+            new DataCell(null)
         }
     }
 }

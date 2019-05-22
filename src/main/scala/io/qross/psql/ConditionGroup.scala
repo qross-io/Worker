@@ -4,6 +4,7 @@ import java.util.regex.Matcher
 
 import io.qross.core.DataHub
 import io.qross.ext.Output
+import io.qross.ext.PlaceHolder._
 import io.qross.psql.Patterns._
 
 import scala.collection.mutable
@@ -16,13 +17,15 @@ class ConditionGroup(expression: String) {
     private val exists = new ArrayBuffer[String]()
     private val selects = new ArrayBuffer[String]()
 
-    def evalAll(statement: Statement, dh: DataHub): Boolean = {
+    def evalAll(PSQL: PSQL, dh: DataHub): Boolean = {
 
         //解析表达式
-        var exp = statement.parseExpressions(expression)
+        var exp = expression
+
+        //先把SELECT语句提取出来的目的是要保留SELECT语句中的PSQL相关变量和函数, 等执行时再替换
 
         //replace SELECT to #[select:n]
-        var m = $_SELECT.matcher(exp)
+        var m = $SELECT$.matcher(exp)
         while (m.find) {
             val select = findOutSelect(exp, m.group)
             exp = exp.replace(select, "#[select:" + selects.size + "]")
@@ -42,8 +45,8 @@ class ConditionGroup(expression: String) {
             ins += m.group(1)
         }
 
-        //解析变量和函数
-        exp = statement.parseVariablesAndFunctions(exp, true)
+        //解析变量和函数和js表达式
+        exp = exp.replacePlaceHolders(PSQL, true)
 
         // ()
         while ({m = $BRACKET.matcher(exp); m}.find) {
@@ -57,7 +60,7 @@ class ConditionGroup(expression: String) {
         //IN (SELECT ...)
         val selectResult = new ArrayBuffer[String]
         for (select <- selects) {
-            selectResult += dh.executeSingleList(statement.parseVariablesAndFunctions(select, false)).mkString(",")
+            selectResult += dh.executeSingleList(select.$place(PSQL)).mkString(",")
         }
 
         for (condition <- this.conditions) {
@@ -73,14 +76,14 @@ class ConditionGroup(expression: String) {
                 field = conditions(m.group(1).toInt).result.toString
             }
             else if (field.nonEmpty) {
-                field = statement.parseSingleExpression(field, false)
+                field = field.$eval(PSQL)
             }
 
             if ({m = CONDITION$.matcher(value); m}.find) {
                 value = conditions(m.group(1).toInt).result.toString
             }
             else if (!value.equalsIgnoreCase("EMPTY") && !value.equalsIgnoreCase("NULL") && value != "()") {
-                value = statement.parseSingleExpression(value, false)
+                value = value.$eval(PSQL)
             }
 
             condition.eval(field, value)
@@ -115,7 +118,7 @@ class ConditionGroup(expression: String) {
         }
 
         if (brackets.nonEmpty) {
-            throw new SQLParserException("Can't find closed bracket for SELECT: " + expression)
+            throw new SQLParseException("Can't find closed bracket for SELECT: " + expression)
         }
         else {
             expression.substring(begin, end)

@@ -87,15 +87,15 @@ object TypeExt {
             queries.toMap
         }
 
-        def eval(): Option[DataCell] = {
+        def eval(): DataCell = {
             val jse: ScriptEngine = new ScriptEngineManager().getEngineByName("JavaScript")
             try {
-                Some(new DataCell(jse.eval(string)))
+                new DataCell(jse.eval(string))
             }
             catch {
                 case e: ScriptException =>
                     e.printStackTrace()
-                    None
+                    new DataCell(null)
             }
 
             //The code below doesn't work.
@@ -107,15 +107,15 @@ object TypeExt {
             //    interpreter.close()
         }
 
-        def call(): Option[DataCell] = {
+        def call(): DataCell = {
             val jse: ScriptEngine = new ScriptEngineManager().getEngineByName("JavaScript")
             try {
-                Some(new DataCell(jse.eval(s"""(function(){ $string })()""")))
+                new DataCell(jse.eval(s"""(function(){ $string })()"""))
             }
             catch {
                 case e: ScriptException =>
                     e.printStackTrace()
-                    None
+                    new DataCell(null)
             }
         }
 
@@ -127,6 +127,15 @@ object TypeExt {
         //为计算值添加双引号，用于PSQL计算过程中
         def useQuotes(): String = {
             "\"" + string.replace("\"", "\\\"") + "\""
+        }
+
+        def useQuotesIf(condition: Boolean): String = {
+            if (condition) {
+                string.useQuotes()
+            }
+            else {
+                string
+            }
         }
 
         //去掉常量中的双引号，用于PSQL计算结果
@@ -272,4 +281,14 @@ object TypeExt {
             Math.round(double * Math.pow(10, precision)) / Math.pow(10, precision)
         }
     }
+
+    implicit  class RegexExt(regex: Regex) {
+        def test(str: String): Boolean = {
+            regex.findFirstIn(str).nonEmpty
+        }
+    }
+
+//    implicit class ListExt[A](list: List[A]) {
+//        def first: Option[A] = if (list.nonEmpty) Some(list.head) else None
+//    }
 }

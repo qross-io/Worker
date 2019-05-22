@@ -1,9 +1,7 @@
 
-import java.sql.DriverManager
 import java.util.regex.Pattern
 
 import io.qross.ext.TypeExt._
-import io.qross.setting.Properties
 //import io.qross.psql.Patterns._
 
 object Main {
@@ -11,7 +9,6 @@ object Main {
     def main(args: Array[String]): Unit = {
 
 
-        println("return 1+3;".call().get)
 
         //println(PASS.getClass.getMethod("a").invoke(null))
         //println(Class.forName("io.qross.psql.PASS").newInstance().getClass.getMethod("a").invoke(null))

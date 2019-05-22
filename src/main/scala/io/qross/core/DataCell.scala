@@ -8,6 +8,28 @@ class DataCell(val value: Any, var dataType: DataType = DataType.NULL) {
         dataType = DataType.of(value)
     }
 
+    def isNull: Boolean = {
+        value == null
+    }
+
+    def isNotNull: Boolean = {
+        value != null
+    }
+
+    def data: Option[Any] = {
+        Option(value)
+    }
+
+    def ifNotNull(handler: DataCell => Unit): DataCell = {
+        handler(this)
+        this
+    }
+
+    def ifNull(handler: () => Unit): DataCell = {
+        handler()
+        this
+    }
+
     override def toString: String = {
         if (value == null) {
             null

@@ -6,6 +6,7 @@ import java.util.regex.Pattern
 import io.qross.core.{DataRow, DataTable}
 import io.qross.time.Timer
 import io.qross.ext._
+import io.qross.ext.PlaceHolder._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -557,10 +558,9 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
             })
         }
         else {
-            val param = PlaceHolder.PARAMETERS.in(SQL)
-            if (param.matched) {
+            if (SQL.hasParameters) {
                 table.foreach(row => {
-                    result.merge(this.executeDataTable(param.replaceWith(row)))
+                    result.merge(this.executeDataTable(SQL.replaceParameters(row)))
                 })
             }
             else {
@@ -583,10 +583,9 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
                 count = this.executeBatchUpdate()
             }
             else {
-                val param = PlaceHolder.PARAMETERS.in(SQL)
-                if (param.matched) {
+                if (SQL.hasParameters) {
                     table.foreach(row => {
-                        this.addBatchCommand(param.replaceWith(row))
+                        this.addBatchCommand(SQL.replaceParameters(row))
                     })
                     count = this.executeBatchCommands()
                 }

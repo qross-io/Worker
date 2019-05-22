@@ -21,7 +21,7 @@ class FOR$SELECT(var variable: String, selectSQL: String) {
             }).foreach(loopVars.addRow)
         }
         else {
-            throw new SQLParserException("In FOR SELECT loop, result columns must equal or more than variables amount.")
+            throw new SQLParseException("In FOR SELECT loop, result columns must equal or more than variables amount.")
         }
 
         loopVars

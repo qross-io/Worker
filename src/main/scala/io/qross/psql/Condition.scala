@@ -159,32 +159,32 @@ class Condition(var expression: String) {
                     this.result = field.toDouble >= value.toDouble
                 catch {
                     case e: Exception =>
-                        throw new SQLParserException("Value must be number on >= compare: " + field + " >= " + value)
+                        throw new SQLParseException("Value must be number on >= compare: " + field + " >= " + value)
                 }
             case "<=" =>
                 try
                     this.result = field.toDouble <= value.toDouble
                 catch {
                     case e: Exception =>
-                        throw new SQLParserException("Value must be number on >= compare: " + field + " <= " + value)
+                        throw new SQLParseException("Value must be number on >= compare: " + field + " <= " + value)
                 }
             case ">" =>
                 try
                     this.result = field.toDouble > value.toDouble
                 catch {
                     case e: Exception =>
-                        throw new SQLParserException("Value must be number on >= compare: " + field + " > " + value)
+                        throw new SQLParseException("Value must be number on >= compare: " + field + " > " + value)
                 }
             case "<" =>
                 try
                     this.result = field.toDouble < value.toDouble
                 catch {
                     case e: Exception =>
-                        throw new SQLParserException("Value must be number on >= compare: " + field + " < " + value)
+                        throw new SQLParseException("Value must be number on >= compare: " + field + " < " + value)
                 }
             case _ =>
-                this.expression.eval() match {
-                    case Some(data) => this.result = parseBoolean(data.value.toString)
+                this.expression.eval().data match {
+                    case Some(data) => this.result = parseBoolean(data.toString)
                     case None => this.result = parseBoolean(this.expression)
                 }
         }

@@ -19,7 +19,7 @@ object Patterns {
 
     val CONDITION: String = "#[condition:"
     val N: String = "]"
-    val $_SELECT: Pattern = Pattern.compile("\\(\\s*SELECT\\s", Pattern.CASE_INSENSITIVE)
+    val $SELECT$: Pattern = Pattern.compile("""\(\s*SELECT\s""", Pattern.CASE_INSENSITIVE)  //(SELECT...)
     val SELECT$: Pattern = Pattern.compile("#\\[select:(\\d+?)]")
     val $EXISTS: Pattern = Pattern.compile("EXISTS\\s*(\\([^)]+\\))", Pattern.CASE_INSENSITIVE)
     val EXISTS$: Pattern = Pattern.compile("#\\[exists:(\\d+?)]")
@@ -31,16 +31,13 @@ object Patterns {
     val $OR: Pattern = Pattern.compile("(^)((.+?)\\s+OR\\s+(.+?))(\\sOR|$)", Pattern.CASE_INSENSITIVE)
     val CONDITION$: Pattern = Pattern.compile("#\\[condition:(\\d+)]", Pattern.CASE_INSENSITIVE)
 
-    val $_FUNCTION: Pattern = Pattern.compile("\\$(" + Function.NAMES.mkString("|") + ")\\s*\\(([^()]*)\\)", Pattern.CASE_INSENSITIVE)
+    val $FUNCTION: Pattern = Pattern.compile("\\$(" + Function.NAMES.mkString("|") + ")\\s*\\(([^()]*)\\)", Pattern.CASE_INSENSITIVE)
     val $STRING: Pattern = Pattern.compile("""#\{s(\d+)}""", Pattern.CASE_INSENSITIVE)
 
     val $SELECT: Pattern = Pattern.compile("^SELECT\\s", Pattern.CASE_INSENSITIVE)
     val $NON_QUERY: Pattern = Pattern.compile("^(INSERT|UPDATE|DELETE)\\s", Pattern.CASE_INSENSITIVE)
 
-    val $JS_EXPRESSION: Pattern = Pattern.compile("""\~\{(.+?)}""", Pattern.CASE_INSENSITIVE)
-    val $JS_STATEMENT: Pattern = Pattern.compile("""\~\{\{(.+?)}}""", Pattern.CASE_INSENSITIVE)
-
-    val $FUNCTION: Pattern = Pattern.compile("\\$\\{?(" + Function.NAMES.mkString("|") + ")\\s*\\(", Pattern.CASE_INSENSITIVE)
+    //val $FUNCTION: Pattern = Pattern.compile("\\$\\{?(" + Function.NAMES.mkString("|") + ")\\s*\\(", Pattern.CASE_INSENSITIVE)
     val $VARIABLE: Pattern = Pattern.compile("""\$\{?([a-z_][a-z0-9_]*)}?""", Pattern.CASE_INSENSITIVE)
 
     //v0.5.9

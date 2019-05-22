@@ -4,6 +4,7 @@ import java.util.regex.Matcher
 
 import io.qross.core.DataRow
 import io.qross.ext.TypeExt._
+import io.qross.ext.PlaceHolder._
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -34,9 +35,9 @@ class FOR$IN(var forItems: String, forCollection: String, val delimiter: String)
         separators += ""
     }
 
-    def computeMap(statement: Statement): ForLoopVariables = {
+    def computeMap(PSQL: PSQL): ForLoopVariables = {
         val variablesMaps = new ForLoopVariables
-        val collection = statement.parseStandardSentence(this.forCollection).split(delimiter, -1)
+        val collection = this.forCollection.$eval(PSQL).split(delimiter, -1)
         for (l <- collection) {
             var line = l
             val row = new DataRow()

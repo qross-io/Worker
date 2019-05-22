@@ -2,16 +2,17 @@ package io.qross.core
 
 import java.io.File
 
+import io.qross.ext.Output
+import io.qross.ext.Output._
+import io.qross.ext.PlaceHolder._
+import io.qross.ext.TypeExt._
 import io.qross.fs._
-import io.qross.jdbc.{DataSource, JDBC}
+import io.qross.jdbc.DataSource
 import io.qross.jdbc.DataType.DataType
 import io.qross.net.{Email, HttpClient, Json}
 import io.qross.setting.Global
 import io.qross.thread.Parallel
 import io.qross.time.{DateTime, Timer}
-import io.qross.ext.Output._
-import io.qross.ext.TypeExt._
-import io.qross.ext._
 
 import scala.collection.mutable
 import scala.collection.parallel.mutable.ParArray
@@ -753,7 +754,7 @@ class DataHub () {
 
     //设置缓冲区数量
     def tanks(amount: Int): DataHub = {
-        TANKS = amount;
+        TANKS = amount
         this
     }
 
@@ -768,8 +769,8 @@ class DataHub () {
             println(selectSQL)
         }
 
-        PlaceHolder.PARAMETERS.in(selectSQL).first match {
-            case Some(param) => pageSQLs += selectSQL -> param
+        selectSQL.matchParameters.headOption match {
+            case Some(param) => pageSQLs += selectSQL -> param.group(0)
             case None => TABLE.merge(CURRENT.executeDataTable(selectSQL))
         }
 
@@ -792,22 +793,22 @@ class DataHub () {
             println(selectSQL)
         }
 
-        PlaceHolder.PARAMETERS.in(selectSQL).first match {
-            case Some(param) => blockSQLs +=
-                selectSQL -> (param,
-                             beginKeyOrSQL match {
-                                 case sentence: String => CURRENT.executeDataRow(sentence).getFirstLong()
-                                 case key: Long => key
-                                 case key: Int => key.toLong
-                                 case _ => beginKeyOrSQL.toString.toLong
-                             },
-                             endKeyOrSQL match {
-                                 case sentence: String => CURRENT.executeDataRow(sentence).getFirstLong()
-                                 case key: Long => key
-                                 case key: Int => key.toLong
-                                 case _ => endKeyOrSQL.toString.toLong
-                             },
-                             blockSize)
+        selectSQL.matchParameters.headOption match {
+            case Some(param) =>
+                blockSQLs += selectSQL -> (param.group(0),
+                        beginKeyOrSQL match {
+                            case sentence: String => CURRENT.executeDataRow(sentence).getFirstLong()
+                            case key: Long => key
+                            case key: Int => key.toLong
+                            case _ => beginKeyOrSQL.toString.toLong
+                        },
+                        endKeyOrSQL match {
+                            case sentence: String => CURRENT.executeDataRow(sentence).getFirstLong()
+                            case key: Long => key
+                            case key: Int => key.toLong
+                            case _ => endKeyOrSQL.toString.toLong
+                        },
+                        blockSize)
             case None => TABLE.merge(CURRENT.executeDataTable(selectSQL))
         }
 
@@ -822,7 +823,7 @@ class DataHub () {
             println(nonQuerySQL)
         }
 
-        PlaceHolder.PARAMETERS.in(nonQuerySQL).first match {
+        nonQuerySQL.matchParameters.headOption match {
             case Some(param) =>
                     var begin = beginKeyOrSQL match {
                         case sentence: String => CURRENT.executeDataRow(sentence).getFirstLong() - 1
@@ -838,7 +839,7 @@ class DataHub () {
                     }
 
                     while (begin < end) {
-                        Bulker.QUEUE.add(nonQuerySQL.replaceFirst(param, begin.toString).replace(param, (if (begin + bulkSize >= end) end else begin + bulkSize).toString))
+                        Bulker.QUEUE.add(nonQuerySQL.replaceFirst(param.group(0), begin.toString).replace(param.group(0), (if (begin + bulkSize >= end) end else begin + bulkSize).toString))
                         begin += bulkSize
                     }
 

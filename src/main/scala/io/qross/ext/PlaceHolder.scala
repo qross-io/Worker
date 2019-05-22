@@ -1,12 +1,15 @@
 package io.qross.ext
 
-import io.qross.core.{DataCell, DataRow}
+import java.util.regex.{Matcher, Pattern}
+
+import io.qross.core.DataRow
+import io.qross.ext.TypeExt._
 import io.qross.jdbc.DataType
+import io.qross.psql.{Function, GlobalVariable, PSQL, SQLExecuteException}
 
 import scala.collection.mutable
+import scala.util.control.Breaks._
 import scala.util.matching.Regex.Match
-import io.qross.ext.TypeExt._
-import io.qross.psql.SQLExecuteException
 
 /*
 
@@ -31,110 +34,296 @@ ${express}
 
 object PlaceHolder {
     //0 whole match 1 whole place holder 2 prefix 3 variable name
-    def ARGUMENTS: PlaceHolder = new PlaceHolder("""[^#&](([#&])\{([a-zA-Z_][a-zA-Z0-9_]+)\})""")   //入参 #{name} 或 &{name}
-    def PARAMETERS: PlaceHolder = new PlaceHolder("""[^#&](([#&])\(?([a-zA-Z_][a-zA-Z0-9_]+)\)?)""") //DataHub传递参数, #name 或 #{name} 或 &name 或 &(name)
-    def USER_VARIABLES: PlaceHolder = new PlaceHolder("""\$\(?([a-zA-Z_][a-zA-Z0-9_]+)\)?""") //用户变量
-    def USER_DEFINED_FUNCTIONS: PlaceHolder = new PlaceHolder("""$[a-zA-Z_]+\(\)""") //未完成, 用户函数
-    def SHARP_EXPRESSIONS: PlaceHolder = new PlaceHolder(s"""${}""") //未完成, Sharp表达式
-    def GLOBAL_VARIABLES: PlaceHolder = new PlaceHolder("""@\(?([a-zA-Z_][a-zA-Z0-9_]+)\)?""") //全局变量
-    def SYSTEM_FUNCTIONS: PlaceHolder = new PlaceHolder("@func") //未完成, 系统函数
-    def JS_EXPRESSIONS: PlaceHolder = new PlaceHolder("""\~\{(.+?)}""", """\~\{\{(.+?)}}""") //js表达式和js语句块
-}
+    val ARGUMENT: String = """[^#&](([#&])\{([a-zA-Z_][a-zA-Z0-9_]+)\})"""  //入参 #{name} 或 &{name}
+    val PARAMETER: String = """[^#&](([#&])\(?([a-zA-Z_][a-zA-Z0-9_]+)\)?)""" //DataHub传递参数, #name 或 #{name} 或 &name 或 &(name)
+    val USER_VARIABLE: String = """[^\$](\$\(?([a-zA-Z_][a-zA-Z0-9_]+)\)?)""" //用户变量
+    val USER_DEFINED_FUNCTION: String = """$[a-zA-Z_]+\(\)""" //未完成, 用户函数
+    val SHARP_EXPRESSION: String = s"""${}""" //未完成, Sharp表达式
+    val GLOBAL_VARIABLE: String = """[^@](@\(?([a-zA-Z_][a-zA-Z0-9_]+)\)?)""" //全局变量
+    val SYSTEM_FUNCTION: String = s"""\@(${Function.NAMES.mkString("|")})\s*\(""" //系统函数
+    val JS_EXPRESSION: String = """\~\{(.+?)}""" //js表达式
+    val JS_STATEMENT: String = """\~\{\{(.+?)}}"""// js语句块
 
-class PlaceHolder(regex: String*) {
+    implicit class Sentence(var sentence: String) {
 
-    private val matches = new mutable.ArrayBuffer[Match]()
-    private var sentence = ""
-
-    def in(sentence: String): PlaceHolder = {
-        this.sentence = sentence
-        regex.foreach(rex => {
-            matches ++= rex.r.findAllMatchIn(sentence)
-        })
-
-        this
-    }
-
-    def matched: Boolean = matches.nonEmpty
-
-    def first: Option[String] = {
-        if (matched) {
-            Some(matches.head.group(1))
+        def hasParameters: Boolean = {
+            PARAMETER.r.test(sentence)
         }
-        else {
-            None
+
+        def hasJsExpressions: Boolean = {
+            JS_EXPRESSION.r.test(sentence)
         }
-    }
 
-    def all: List[String] = {
-        matches.map(m => m.group(1)).toList
-    }
+        def hasJsStatements: Boolean = {
+            JS_STATEMENT.r.test(sentence)
+        }
 
-    //匹配的几个问题
-    //先替换长字符匹配，再替换短字符匹配，如 #user 和 #username, 应先替换 #username，再替换 #user
-    //原生特殊字符处理，如输出#，则使用两个重复的##
+        def hasVariables: Boolean = {
+            hasUserVariables || hasGlobalVariables
+        }
 
-    //适用于DataHub pass和put的方法, 对应DataSource的 tableSelect和tableUpdate
-    def replaceWith(row: DataRow): String = {
+        def hasUserVariables: Boolean = {
+            USER_VARIABLE.r.test(sentence)
+        }
 
-        var replacement = this.sentence
+        def hasGlobalVariables: Boolean = {
+            GLOBAL_VARIABLE.r.test(sentence)
+        }
 
-        matches.sortBy(m => m.group(1)).reverse.foreach(m => {
+        def matchParameters: List[Match] = {
+            PARAMETER.r.findAllMatchIn(sentence).toList
+        }
 
-            val whole = m.group(0)
-            val fieldName = m.group(3)
-            val symbol = m.group(2)
-            val prefix = whole.takeBefore(symbol) //前缀
+        //匹配的几个问题
+        //先替换长字符匹配，再替换短字符匹配，如 #user 和 #username, 应先替换 #username，再替换 #user
+        //原生特殊字符处理，如输出#，则使用两个重复的##
 
-            if (symbol == "#") {
-                if (row.contains(fieldName)) {
-                    replacement = replacement.replace(whole, prefix + row.getString(fieldName))
-                }
-            }
-            else if (symbol == "&") {
-                if (row.contains(fieldName)) {
-                    replacement = replacement.replace(whole, (row.getDataType(fieldName), row.get(fieldName)) match {
-                        case (Some(dataType), Some(value)) =>
-                            if (value == null) {
-                                prefix + "NULL"
+        //适用于DataHub pass和put的方法, 对应DataSource的 tableSelect和tableUpdate
+        def replaceParameters(row: DataRow): String = {
+
+            PARAMETER
+                    .r
+                    .findAllMatchIn(sentence)
+                    .toList
+                    .sortBy(m => m.group(3))
+                    .reverse
+                    .foreach(m => {
+
+                        val whole = m.group(0)
+                        val fieldName = m.group(3)
+                        val symbol = m.group(2)
+                        val prefix = whole.takeBefore(symbol) //前缀
+
+                        if (symbol == "#") {
+                            if (row.contains(fieldName)) {
+                                sentence = sentence.replace(whole, prefix + row.getString(fieldName))
                             }
-                            else if (dataType == DataType.INTEGER || dataType == DataType.DECIMAL) {
-                                prefix + value.toString
-                            }
-                            else {
-                                prefix + "'" + value.toString.replace("'", "''") + "'"
-                            }
-                        case _ => prefix
-                    })
-                }
-            }
-        })
-
-        replacement = replacement.replace("##", "#")
-        replacement = replacement.replace("&&", "&")
-
-        replacement
-    }
-
-    //适用于js表达式和语句块
-    def eval(retainQuotes: Boolean = false): DataCell = {
-        var replacement = this.sentence
-
-        matches.foreach(m => {
-            { if (m.group(0).startsWith("~{{")) m.group(1).call() else m.group(1).eval() } match {
-                case Some(data) =>
-                    replacement = replacement.replace(m.group(0),
-                                        if (retainQuotes && data.dataType == DataType.TEXT) {
-                                            data.value.toString.useQuotes()
+                        }
+                        else if (symbol == "&") {
+                            if (row.contains(fieldName)) {
+                                sentence = sentence.replace(whole, (row.getDataType(fieldName), row.get(fieldName)) match {
+                                    case (Some(dataType), Some(value)) =>
+                                        if (value == null) {
+                                            prefix + "NULL"
+                                        }
+                                        else if (dataType == DataType.INTEGER || dataType == DataType.DECIMAL) {
+                                            prefix + value.toString
                                         }
                                         else {
-                                            data.value.toString
-                                        })
-                case None => throw new SQLExecuteException(s"{ Wrong js expression or statement: ${m.group(0)}}")
-            }
-        })
+                                            prefix + "'" + value.toString.replace("'", "''") + "'"
+                                        }
+                                    case _ => prefix
+                                })
+                            }
+                        }
+                    })
 
-        //replacement
-        new DataCell("")
+            sentence = sentence.replace("##", "#")
+                                .replace("&&", "&")
+
+            sentence
+        }
+
+        //处理语句中的js表达式, 目前不判断类型即无保留双引号的情况
+        def replaceJsExpressions(retainQuotes: Boolean = false): String = {
+            JS_EXPRESSION
+                    .r
+                    .findAllMatchIn(sentence)
+                    .foreach(m => {
+                        m.group(1).eval()
+                            .ifNotNull(cell => {
+                                sentence = sentence.replace(m.group(0), cell.toString.useQuotesIf(retainQuotes && cell.dataType == DataType.TEXT))
+                            })
+                            .ifNull(throw new SQLExecuteException(s"{ Wrong js expression: ${m.group(0)}}"))
+                    })
+
+            sentence
+        }
+
+        //处理语句中的js语句块, 目前不判断类型即无保留双引号的情况
+        def replaceJsStatements(retainQuotes: Boolean = false): String = {
+            JS_STATEMENT
+                    .r
+                    .findAllMatchIn(sentence)
+                    .foreach(m => {
+                        m.group(1).call()
+                            .ifNotNull(cell =>
+                                sentence = sentence.replace(m.group(0),
+                                    cell.value.toString.useQuotesIf(retainQuotes && cell.dataType == DataType.TEXT)
+                                )
+                            )
+                            .ifNull(throw new SQLExecuteException(s"{ Wrong js statement: ${m.group(0)}}"))
+                    })
+
+            sentence
+        }
+
+        //解析表达式中的变量
+        def replaceUserVariables(PSQL: PSQL, retainQuotes: Boolean = false): String = {
+
+            USER_VARIABLE
+                    .r
+                    .findAllMatchIn(sentence)
+                    .toList
+                    .sortBy(m => m.group(2))
+                    .reverse
+                    .foreach(m => {
+                        val whole = m.group(0)
+                        val fieldName = m.group(2)
+                        val prefix = whole.takeBefore("$")
+
+                        val fieldValue = PSQL.findVariableValue(fieldName)
+                        if (fieldValue.isNotNull) {
+                            sentence = sentence.replace(whole,
+                                prefix + fieldValue.value.toString.useQuotesIf(retainQuotes && fieldValue.dataType == DataType.TEXT))
+                        }
+                    })
+
+            sentence = sentence.replace("$$", "$")
+            sentence
+        }
+
+        def replaceGlobalVariables(retainQuotes: Boolean = false): String = {
+            GLOBAL_VARIABLE
+                    .r.
+                    findAllMatchIn(sentence)
+                    .toList
+                    .sortBy(m => m.group(2))
+                    .reverse
+                    .foreach(m => {
+                        val whole = m.group(0)
+                        val fieldName = m.group(2)
+                        val prefix = whole.takeBefore("@")
+
+                        val fieldValue = GlobalVariable.get(fieldName)
+                        if (fieldValue.isNotNull) {
+                            sentence = sentence.replace(whole, prefix + fieldValue.toString.useQuotesIf(retainQuotes && fieldValue.dataType == DataType.TEXT))
+                        }
+                    })
+
+            sentence
+        }
+
+        def `##->#`: String = {
+            sentence = sentence.replace("##", "#")
+            sentence
+        }
+
+        def `&&->&`: String = {
+            sentence = sentence.replace("&&", "&")
+            sentence
+        }
+        def `$$->$`: String = {
+            sentence = sentence.replace("$$", "$")
+            sentence
+        }
+
+        //解析完整的表达式 - SET表达式右侧 / 条件表达式左右侧 / 函数的每个参数 / FOR-IN 表达式右侧 / FOR-TO 表达式左右侧
+        //解析过程中，字符串需要保留双引号
+
+        // 先计算变量，再计算函数
+        // 变量 ${VAR} $VAR
+        //var parsed = parseVariables(expression, true)
+        // 函数 ${FUNC()} $FUNC()
+        //parsed = parseFunctions(parsed, true)
+
+        // 以js方式执行表达式
+        def evalExpression(retainQuotes: Boolean = true): String = {
+            sentence.eval()
+                .ifNotNull(cell => {
+                    //如果是字符串，则加上引号
+                    sentence = cell.value.toString
+                    if (retainQuotes && cell.dataType == DataType.TEXT) {
+                        sentence = sentence.useQuotes()
+                    }
+                })
+                .ifNull(throw new SQLExecuteException("Can't calculate the expression: " + sentence))
+
+            sentence
+        }
+
+        //解析表达式中的函数
+        def replaceSystemFunctions(retainQuotes: Boolean): String = {
+
+            val p = Pattern.compile(SYSTEM_FUNCTION, Pattern.CASE_INSENSITIVE)
+            var m: Matcher = null
+            var chr: String = null
+            var start: Int = 0
+            var end: Int = 0
+
+            while ( {m = p.matcher(sentence); m}.find(start)) {
+                val brackets = new mutable.ArrayStack[String]()
+                brackets.push("(")
+                start = sentence.indexOf(m.group)
+                end = start + m.group.length
+                breakable {
+                    while (brackets.nonEmpty) {
+                        chr = sentence.substring(end, end + 1)
+                        chr match {
+                            case "(" =>
+                                if (brackets.last != "\"") {
+                                    brackets.push("(")
+                                }
+                            case ")" =>
+                                if (brackets.last != "\"") {
+                                    brackets.pop()
+                                }
+                            case "\"" =>
+                                if (brackets.last == "\"") {
+                                    brackets.pop()
+                                }
+                                else {
+                                    brackets.push("\"")
+                                }
+                        }
+                        //遇到转义符，前进一位
+                        end += (if (chr == "\\") 2 else 1)
+                        if (end >= sentence.length) {
+                            break
+                        }
+                    }
+                }
+                //函数应该正确闭合
+                if (brackets.nonEmpty) {
+                    brackets.clear()
+                    throw new SQLExecuteException("Miss right bracket in internal function: " + m.group(0))
+                }
+                //取按开始点和结束点正确的函数
+                val function: String = sentence.substring(start, end)
+                var replacement: String = Function(function).call()
+                if (!retainQuotes) {
+                    replacement = replacement.removeQuotes()
+                }
+                start += replacement.length
+                sentence = sentence.replace(function, replacement)
+            }
+
+            sentence
+        }
+
+        def replacePlaceHolders(PSQL: PSQL, retainQuotes: Boolean = false): String = {
+            sentence = sentence
+                    .replaceGlobalVariables(retainQuotes)
+                    .replaceUserVariables(PSQL, retainQuotes)
+                    .replaceSystemFunctions(retainQuotes)
+                    .replaceJsExpressions()
+                    .replaceJsStatements()
+
+            sentence
+        }
+
+        def $place(PSQL: PSQL): String = {
+            sentence.replacePlaceHolders(PSQL, false)
+        }
+
+        def parseExpression(PSQL: PSQL, retainQuotes: Boolean = true): String = {
+            sentence = sentence.replacePlaceHolders(PSQL, true)
+                                .evalExpression(retainQuotes)
+            sentence
+        }
+
+        def $eval(PSQL: PSQL): String = {
+            sentence.parseExpression(PSQL, false)
+        }
     }
 }
