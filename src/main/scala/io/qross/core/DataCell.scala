@@ -21,12 +21,16 @@ class DataCell(val value: Any, var dataType: DataType = DataType.NULL) {
     }
 
     def ifNotNull(handler: DataCell => Unit): DataCell = {
-        handler(this)
+        if (isNotNull) {
+            handler(this)
+        }
         this
     }
 
     def ifNull(handler: () => Unit): DataCell = {
-        handler()
+        if (isNull) {
+            handler()
+        }
         this
     }
 

@@ -186,12 +186,12 @@ object TypeExt {
                         ""
                     }
                     else {
-                        string.substring(string.indexOf(char) + 1)
+                        string.substring(string.indexOf(char) + char.length)
                     }
                 case index: Integer => string.substring(index + 1)
                 case rex: Regex =>
                     rex.findFirstIn(string) match {
-                        case Some(v) => string.substring(string.indexOf(v) + 1)
+                        case Some(v) => string.substring(string.indexOf(v) + v.length)
                         case None => ""
                     }
                 case _ => ""

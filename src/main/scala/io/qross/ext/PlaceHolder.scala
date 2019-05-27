@@ -2,7 +2,7 @@ package io.qross.ext
 
 import java.util.regex.{Matcher, Pattern}
 
-import io.qross.core.DataRow
+import io.qross.core.{DataCell, DataRow}
 import io.qross.ext.TypeExt._
 import io.qross.jdbc.DataType
 import io.qross.psql.{Function, GlobalVariable, PSQL, SQLExecuteException}
@@ -34,13 +34,13 @@ ${express}
 
 object PlaceHolder {
     //0 whole match 1 whole place holder 2 prefix 3 variable name
-    val ARGUMENT: String = """[^#&](([#&])\{([a-zA-Z_][a-zA-Z0-9_]+)\})"""  //入参 #{name} 或 &{name}
-    val PARAMETER: String = """[^#&](([#&])\(?([a-zA-Z_][a-zA-Z0-9_]+)\)?)""" //DataHub传递参数, #name 或 #{name} 或 &name 或 &(name)
-    val USER_VARIABLE: String = """[^\$](\$\(?([a-zA-Z_][a-zA-Z0-9_]+)\)?)""" //用户变量
+    val ARGUMENT: String = """(^|[^#&])(([#&])\{([a-zA-Z0-9_]+)\})"""  //入参 #{name} 或 &{name}
+    val PARAMETER: String = """(^|[^#&])(([#&])\(?([a-zA-Z0-9_]+)\)?)""" //DataHub传递参数, #name 或 #{name} 或 &name 或 &(name)
+    val USER_VARIABLE: String = """(^|[^\$])(\$\(?([a-zA-Z0-9_]+)\)?)""" //#用户变量
+    val GLOBAL_VARIABLE: String = """(^|[^@])(@\(?([a-zA-Z0-9_]+)\)?)""" //#全局变量
     val USER_DEFINED_FUNCTION: String = """$[a-zA-Z_]+\(\)""" //未完成, 用户函数
     val SHARP_EXPRESSION: String = s"""${}""" //未完成, Sharp表达式
-    val GLOBAL_VARIABLE: String = """[^@](@\(?([a-zA-Z_][a-zA-Z0-9_]+)\)?)""" //全局变量
-    val SYSTEM_FUNCTION: String = s"""\@(${Function.NAMES.mkString("|")})\s*\(""" //系统函数
+    val SYSTEM_FUNCTION: String = raw"""@(${Function.NAMES.mkString("|")})\s*\(""" //系统函数
     val JS_EXPRESSION: String = """\~\{(.+?)}""" //js表达式
     val JS_STATEMENT: String = """\~\{\{(.+?)}}"""// js语句块
 
@@ -132,9 +132,9 @@ object PlaceHolder {
                     .foreach(m => {
                         m.group(1).eval()
                             .ifNotNull(cell => {
-                                sentence = sentence.replace(m.group(0), cell.toString.useQuotesIf(retainQuotes && cell.dataType == DataType.TEXT))
+                                sentence = sentence.replace(m.group(0), cell.toString.useQuotesIf(retainQuotes && (cell.dataType == DataType.TEXT || cell.dataType == DataType.DATETIME)))
                             })
-                            .ifNull(throw new SQLExecuteException(s"{ Wrong js expression: ${m.group(0)}}"))
+                            .ifNull(() => throw new SQLExecuteException(s"{ Wrong js expression: ${m.group(0)}}"))
                     })
 
             sentence
@@ -149,10 +149,10 @@ object PlaceHolder {
                         m.group(1).call()
                             .ifNotNull(cell =>
                                 sentence = sentence.replace(m.group(0),
-                                    cell.value.toString.useQuotesIf(retainQuotes && cell.dataType == DataType.TEXT)
+                                    cell.value.toString.useQuotesIf(retainQuotes && (cell.dataType == DataType.TEXT || cell.dataType == DataType.DATETIME))
                                 )
                             )
-                            .ifNull(throw new SQLExecuteException(s"{ Wrong js statement: ${m.group(0)}}"))
+                            .ifNull(() => throw new SQLExecuteException(s"{ Wrong js statement: ${m.group(0)}}"))
                     })
 
             sentence
@@ -165,17 +165,17 @@ object PlaceHolder {
                     .r
                     .findAllMatchIn(sentence)
                     .toList
-                    .sortBy(m => m.group(2))
+                    .sortBy(m => m.group(3))
                     .reverse
                     .foreach(m => {
                         val whole = m.group(0)
-                        val fieldName = m.group(2)
+                        val fieldName = m.group(3)
                         val prefix = whole.takeBefore("$")
 
                         val fieldValue = PSQL.findVariableValue(fieldName)
                         if (fieldValue.isNotNull) {
                             sentence = sentence.replace(whole,
-                                prefix + fieldValue.value.toString.useQuotesIf(retainQuotes && fieldValue.dataType == DataType.TEXT))
+                                prefix + fieldValue.value.toString) //.useQuotesIf(retainQuotes && fieldValue.dataType == DataType.TEXT)
                         }
                     })
 
@@ -183,24 +183,25 @@ object PlaceHolder {
             sentence
         }
 
-        def replaceGlobalVariables(retainQuotes: Boolean = false): String = {
+        def replaceGlobalVariables(PSQL: PSQL, retainQuotes: Boolean = false): String = {
             GLOBAL_VARIABLE
                     .r.
                     findAllMatchIn(sentence)
                     .toList
-                    .sortBy(m => m.group(2))
+                    .sortBy(m => m.group(3))
                     .reverse
                     .foreach(m => {
                         val whole = m.group(0)
-                        val fieldName = m.group(2)
+                        val fieldName = m.group(3).trim.toUpperCase()
                         val prefix = whole.takeBefore("@")
 
-                        val fieldValue = GlobalVariable.get(fieldName)
+                        val fieldValue = GlobalVariable.get(fieldName, PSQL)
                         if (fieldValue.isNotNull) {
-                            sentence = sentence.replace(whole, prefix + fieldValue.toString.useQuotesIf(retainQuotes && fieldValue.dataType == DataType.TEXT))
+                            sentence = sentence.replace(whole, prefix + fieldValue.toString.useQuotesIf(retainQuotes && (fieldValue.dataType == DataType.TEXT || fieldValue.dataType == DataType.DATETIME)))
                         }
                     })
 
+            sentence = sentence.replace("@@", "@")
             sentence
         }
 
@@ -226,21 +227,6 @@ object PlaceHolder {
         //var parsed = parseVariables(expression, true)
         // 函数 ${FUNC()} $FUNC()
         //parsed = parseFunctions(parsed, true)
-
-        // 以js方式执行表达式
-        def evalExpression(retainQuotes: Boolean = true): String = {
-            sentence.eval()
-                .ifNotNull(cell => {
-                    //如果是字符串，则加上引号
-                    sentence = cell.value.toString
-                    if (retainQuotes && cell.dataType == DataType.TEXT) {
-                        sentence = sentence.useQuotes()
-                    }
-                })
-                .ifNull(throw new SQLExecuteException("Can't calculate the expression: " + sentence))
-
-            sentence
-        }
 
         //解析表达式中的函数
         def replaceSystemFunctions(retainQuotes: Boolean): String = {
@@ -303,7 +289,7 @@ object PlaceHolder {
 
         def replacePlaceHolders(PSQL: PSQL, retainQuotes: Boolean = false): String = {
             sentence = sentence
-                    .replaceGlobalVariables(retainQuotes)
+                    .replaceGlobalVariables(PSQL, retainQuotes)
                     .replaceUserVariables(PSQL, retainQuotes)
                     .replaceSystemFunctions(retainQuotes)
                     .replaceJsExpressions()
@@ -318,12 +304,25 @@ object PlaceHolder {
 
         def parseExpression(PSQL: PSQL, retainQuotes: Boolean = true): String = {
             sentence = sentence.replacePlaceHolders(PSQL, true)
-                                .evalExpression(retainQuotes)
+            sentence.eval()
+                    .ifNotNull(cell => {
+                        //如果是字符串，则加上引号
+                        sentence = cell.value.toString
+                        if (retainQuotes && (cell.dataType == DataType.TEXT || cell.dataType == DataType.DATETIME)) {
+                            sentence = sentence.useQuotes()
+                        }
+                    })
+                    .ifNull(() => throw new SQLExecuteException("Can't calculate the expression: " + sentence))
+
             sentence
         }
 
         def $eval(PSQL: PSQL): String = {
             sentence.parseExpression(PSQL, false)
+        }
+
+        def evalExpression(PSQL: PSQL): DataCell = {
+            sentence.replacePlaceHolders(PSQL, true).eval()
         }
     }
 }

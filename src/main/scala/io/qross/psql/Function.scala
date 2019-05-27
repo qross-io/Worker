@@ -80,7 +80,7 @@ case class Function(function: String) {
                     .ifNotNull(cell => {
                         args(i) = cell.value.toString //这里不带括号
                     })
-                    .ifNull(throw new SQLParseException("Wrong function argument or expression: " + args(i)))
+                    .ifNull(() => throw new SQLParseException("Wrong function argument or expression: " + args(i)))
             }
         }
 

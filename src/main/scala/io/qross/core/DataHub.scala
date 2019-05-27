@@ -7,9 +7,10 @@ import io.qross.ext.Output._
 import io.qross.ext.PlaceHolder._
 import io.qross.ext.TypeExt._
 import io.qross.fs._
-import io.qross.jdbc.DataSource
+import io.qross.jdbc.{DataSource, JDBC}
 import io.qross.jdbc.DataType.DataType
 import io.qross.net.{Email, HttpClient, Json}
+import io.qross.psql.GlobalVariable
 import io.qross.setting.Global
 import io.qross.thread.Parallel
 import io.qross.time.{DateTime, Timer}
@@ -56,11 +57,38 @@ class DataHub () {
     private var $COUNT: Int = 0
     private var $TOTAL: Int = 0
 
+    var userId: Int = 0
+    var userName: String = ""
+    var roleName: String = "WORKER"
+
     
     // ---------- system ----------
     
     def debug(enabled: Boolean = true): DataHub = {
         DEBUG = enabled
+        this
+    }
+
+    def signIn(userId: Int, userName: String, roleName: String = "WORKER"): DataHub = {
+        this.userId = userId
+        this.userName = userName
+        this.roleName = roleName
+
+        //从数据库加载用户全局变量
+        if (JDBC.hasQrossSystem) {
+            DataSource.queryDataTable("SELECT var_name, var_type, var_value FROM qross_variables WHERE var_user=?", userId)
+                    .foreach(row => {
+                        GlobalVariable.USER.set(
+                            row.getString("var_name").toUpperCase(),
+                            row.getString("var_type") match {
+                                case "INTEGER" => row.getLong("var_value")
+                                case "DECIMAL" => row.getDouble("var_value")
+                                case _ => row.getString("var_value")
+                            })
+
+                    }).clear()
+        }
+
         this
     }
 
@@ -1286,7 +1314,14 @@ class DataHub () {
     }
 
     def show(limit: Int = 20): DataHub = {
-        TABLE.show(limit)
+        if (TABLE.nonEmpty) {
+            TABLE.show(limit)
+        }
+        else {
+            println("------------------------------------------------------------------------")
+            println("NO DATA IN BUFFER TO SHOW")
+            println("------------------------------------------------------------------------")
+        }
 
         TO_BE_CLEAR = true
 

@@ -2,13 +2,12 @@ package io.qross.psql
 
 import java.util.regex.Matcher
 
-import io.qross.core.{DataCell, DataHub, DataRow}
+import io.qross.core.{DataCell, DataHub}
 import io.qross.ext.Output
-import io.qross.ext.TypeExt._
 import io.qross.ext.PlaceHolder._
+import io.qross.ext.TypeExt._
 import io.qross.jdbc.{DataSource, JDBC}
 import io.qross.psql.Patterns._
-import io.qross.setting.Properties
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -17,23 +16,30 @@ import scala.util.control.Breaks._
 
 object PSQL {
 
-    def parse(SQL: String) = new PSQL(SQL)
+    implicit class DataHubForPSQL(dh: DataHub) {
+
+        def run(SQL: String, outputType: String = OUT.LIST): Any = {
+            new PSQL(SQL, dh)
+                    .run(outputType)
+        }
+    }
 }
 
-class PSQL(var SQL: String) {
+class PSQL(val originalSQL: String, val dh: DataHub) {
+
+    var SQL: String = originalSQL
 
     private var params = ""
     private var cacheName = ""
     private var cacheEnabled = false
-    var userId: Int = 0
-    var userName: String = ""
 
     private val root: Statement = new Statement("ROOT", SQL)
     private var m: Matcher = _
 
-    private var dh: DataHub = _
     //结果集
-    private val ALL = new mutable.LinkedHashMap[String, Any]()
+    val ALL = new mutable.LinkedHashMap[String, Any]()
+    var ROWS: Int = 0 //最后一个SELECT返回的结果数量
+    var AFFECTED: Int = 0  //最后一个非SELECT语句影响的数据表行数
 
     //正在解析的控制语句
     private val PARSING = new mutable.ArrayStack[Statement]
@@ -101,7 +107,7 @@ class PSQL(var SQL: String) {
         val sentences = SQL.split(";")
         for (sentence <- sentences) {
             if (sentence.trim.nonEmpty) {
-                parseStatement(sentence.replace("~u003b", ";"))
+                parseStatement(sentence.trim.replace("~u003b", ";"))
             }
         }
 
@@ -220,7 +226,7 @@ class PSQL(var SQL: String) {
             parseStatement(sentence.substring(m.group(0).length).trim)
         }
         else if ({m = $FOR$TO.matcher(sentence); m}.find) {
-            val $for$to: Statement = new Statement("FOR_TO", m.group(0), new FOR$TO(m.group(1).trim().removeVariableModifier(), m.group(2).trim(), m.group(3).trim()))
+            val $for$to: Statement = new Statement("FOR_TO", m.group(0), new FOR$TO(m.group(1).trim(), m.group(2).trim(), m.group(3).trim()))
             PARSING.last.addStatement($for$to)
 
             //只进栈
@@ -273,7 +279,7 @@ class PSQL(var SQL: String) {
 
     private def parseSET(sentence: String): Unit = {
         if ({m = $SET.matcher(sentence); m}.find) {
-            val $set: Statement = new Statement("SET", sentence, new SET(m.group(1).trim, sentence.substring(sentence.indexOf(":=") + 2).trim))
+            val $set: Statement = new Statement("SET", sentence, new SET(m.group(1).trim, m.group(2).trim))
             PARSING.last.addStatement($set)
         }
         else {
@@ -355,7 +361,7 @@ class PSQL(var SQL: String) {
 
     private def parseOUT(sentence: String): Unit = {
         if ({m = $OUT.matcher(sentence); m}.find) {
-            PARSING.last.addStatement(new Statement("OUT", sentence, new OUT(m.group(1), m.group(2), sentence.takeAfter("#").trim)))
+            PARSING.last.addStatement(new Statement("OUT", sentence, new OUT(m.group(1).toUpperCase(), m.group(2), sentence.takeAfter("#").trim)))
         }
         else {
             throw new SQLParseException("Incorrect OUT sentence: " + sentence)
@@ -364,7 +370,7 @@ class PSQL(var SQL: String) {
 
     private def parsePRINT(sentence: String): Unit = {
         if ({m = $PRINT.matcher(sentence); m}.find) {
-            PARSING.last.addStatement(new Statement("PRINT", sentence, new PRINT(m.group(1), m.group(2))))
+            PARSING.last.addStatement(new Statement("PRINT", sentence, new PRINT(m.group(1), m.group(2).trim)))
         }
         else {
             throw new SQLParseException("Incorrect PRINT sentence: " + sentence)
@@ -534,6 +540,7 @@ class PSQL(var SQL: String) {
         $out.caption match {
             case "SELECT" =>
                 val rows = dh.executeMapList(SQL)
+                ROWS = rows.size
                 $out.outputType.$eval(this) match {
                     case "SINGLE" =>
                         if (rows.nonEmpty && rows.head.nonEmpty) {
@@ -557,18 +564,21 @@ class PSQL(var SQL: String) {
                 }
             case _ =>
                 //非查询语句仅返回受影响的行数, 输出类型即使设置也无效
-                ALL.put(outputName, this.dh.executeNonQuery(SQL))
+                ALL.put(outputName, {
+                    AFFECTED = this.dh.executeNonQuery(SQL)
+                    AFFECTED
+                })
         }
     }
 
     private def executePRINT(statement: Statement): Unit = {
         val $print = statement.instance.asInstanceOf[PRINT]
-        val message = $print.message.$place(this)
-        $print.messageType.$eval(this) match {
+        val message = $print.message.$eval(this)
+        $print.messageType match {
             case "WARN" => Output.writeWarning(message)
             case "ERROR" => Output.writeException(message)
             case "DEBUG" => Output.writeDebugging(message)
-            case "INFO" => Output.writeDebugging(message)
+            case "INFO" => Output.writeMessage(message)
             case "NONE" => Output.writeLine(message)
             case seal: String => Output.writeLineWithSeal(seal, message)
             case _ =>
@@ -581,7 +591,12 @@ class PSQL(var SQL: String) {
     }
 
     private def executeSELECT(statement: Statement): Unit = {
-        ALL.put("LIST", dh.executeMapList(statement.sentence.$place(this)))
+        ALL.put(OUT.LIST, {
+            val rows = dh.executeMapList(statement.sentence.$place(this))
+            ROWS = rows.size
+            rows
+        })
+
     }
 
     private def execute(statements: ArrayBuffer[Statement]): Unit = {
@@ -591,7 +606,10 @@ class PSQL(var SQL: String) {
                 EXECUTOR(statement.caption)(statement)
             }
             else {
-                ALL.put("AFFECTED", dh.executeNonQuery(statement.sentence))
+                ALL.put(OUT.AFFECTED, {
+                    AFFECTED = dh.executeNonQuery(statement.sentence)
+                    AFFECTED
+                })
             }
         }
     }
@@ -599,52 +617,79 @@ class PSQL(var SQL: String) {
     //程序变量相关
     //root块存储程序级全局变量
     //其他局部变量在子块中
-    def updateVariableValue(field: String, value: Any): Boolean = {
-        var found = false
-        breakable {
-            for (i <- FOR_VARIABLES.indices) {
-                if (FOR_VARIABLES(i).contains(field)) {
-                    FOR_VARIABLES(i).set(field, value)
-                    found = true
-                    break
-                }
-            }
-        }
+    def updateVariableValue(field: String, value: Any): Unit = {
+        val symbol = field.take(1)
+        val name = field.takeAfter(0).$trim("(", ")").toUpperCase()
 
-        if (!found) {
+        if (symbol == "$") {
+            //局部变量
+            var found = false
             breakable {
-                for (i <- EXECUTING.indices) {
-                    if (EXECUTING(i).containsVariable(field)) {
-                        EXECUTING(i).setVariable(field, value)
+                for (i <- FOR_VARIABLES.indices) {
+                    if (FOR_VARIABLES(i).contains(name)) {
+                        FOR_VARIABLES(i).set(name, value)
                         found = true
                         break
                     }
                 }
             }
-        }
 
-        if (!found) {
-            EXECUTING.last.setVariable(field, value)
-        }
+            if (!found) {
+                breakable {
+                    for (i <- EXECUTING.indices) {
+                        if (EXECUTING(i).containsVariable(name)) {
+                            EXECUTING(i).setVariable(name, value)
+                            found = true
+                            break
+                        }
+                    }
+                }
+            }
 
-        found
+            if (!found) {
+                EXECUTING.last.setVariable(name, value)
+            }
+
+        }
+        else if (symbol == "@") {
+            //全局变量
+            GlobalVariable.set(name, value, dh.userId, dh.roleName)
+        }
     }
 
+    //变量名称存储时均为大写, 即在执行过程中不区分大小写
     def findVariableValue(field: String): DataCell = {
 
-        for (i <- FOR_VARIABLES.indices) {
-            if (FOR_VARIABLES(i).contains(field)) {
-                FOR_VARIABLES(i).get(field)
+        val symbol = field.take(1)
+        val name = field.takeAfter(0).$trim("(", ")").toUpperCase()
+
+        var cell = new DataCell(null)
+
+        if (symbol == "$") {
+            breakable {
+                for (i <- FOR_VARIABLES.indices) {
+                    if (FOR_VARIABLES(i).contains(field)) {
+                        cell = FOR_VARIABLES(i).get(field)
+                        break
+                    }
+                }
+            }
+
+            breakable {
+                for (i <- EXECUTING.indices) {
+                    if (EXECUTING(i).containsVariable(field)) {
+                        cell = EXECUTING(i).getVariable(field)
+                        break
+                    }
+                }
             }
         }
-
-        for (i <- EXECUTING.indices) {
-            if (EXECUTING(i).containsVariable(field)) {
-                EXECUTING(i).getVariable(field)
-            }
+        else if (symbol == "@") {
+            //全局变量
+            GlobalVariable.get(name, this)
         }
 
-        new DataCell(null)
+        cell
     }
 
     //公开方法
@@ -695,62 +740,33 @@ class PSQL(var SQL: String) {
         this
     }
 
-    def signIn(userId: Int, userName: String): PSQL = {
-        this.userId = userId
-        this.userName = userName
-
-        //从数据库加载全局变量
-        if (JDBC.hasQrossSystem) {
-            // USER:NAME -> VALUE
-            DataSource.queryDataTable("SELECT var_name, var_type, var_value FROM qross_variables WHERE var_group='USER' AND A.var_user=?", userId)
-                    .foreach(row => {
-                        GlobalVariable.USER.set(
-                            row.getString("var_name"),
-                            row.getString("var_type") match {
-                                case "INTEGER" => row.getLong("var_value")
-                                case "DECIMAL" => row.getDouble("var_value")
-                                case _ => row.getString("var_value")
-                            })
-
-                    }).clear()
-        }
-
-        this
-    }
-
     //设置单个变量的值
     def set(globalVariableName: String, value: String): PSQL = {
         root.setVariable(globalVariableName, value)
         this
     }
 
-    def executeOn(ds: DataSource): PSQL = {
-        this.dh = new DataHub()
-        this.dh.open(ds)
-        this
-    }
-
-    def andReturn(resultType: String = "list"): Any = {
+    def run(resultType: String = OUT.LIST): Option[Any] = {
         if (this.cacheEnabled && ResultCache.contains(this.cacheName, this.params)) {
-            Output.writeLine("# FROM CACHE # " + this.SQL)
+            //Output.writeLine("# FROM CACHE # " + this.SQL)
             ResultCache.get(this.cacheName, this.params)
         }
         else {
             this.parseAll()
-            Output.writeLine("# FROM DATASOURCE # " + this.SQL)
+            //Output.writeLine("# FROM DATASOURCE # " + this.SQL)
             EXECUTING.push(root)
             this.execute(root.statements)
-            dh.close()
+            dh.clear()
 
-            if (resultType.toLowerCase() == "all") {
+            if (resultType.toLowerCase() == OUT.ALL) {
                 if (cacheEnabled) {
                     ResultCache.set(cacheName, params, ALL)
                 }
-                ALL
+                Some(ALL)
             }
             else {
                 if (cacheEnabled) {
-                    ResultCache.set(cacheName, params, ALL.get(resultType.toLowerCase()))
+                    ResultCache.set(cacheName, params, ALL(resultType.toLowerCase()))
                 }
                 ALL.get(resultType.toLowerCase())
             }

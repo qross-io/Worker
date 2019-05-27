@@ -11,6 +11,7 @@ object DataType extends Enumeration {
     val TEXT: DataType = Value("TEXT")
     val BLOB: DataType = Value("BLOB")
     val NULL: DataType = Value("NULL")
+    val DATETIME: DataType = Value("DATETIME")
     //val NUMBER: DataType = Value("REAL")
     
     def ofClassName(value: String): DataType = {
@@ -25,6 +26,7 @@ object DataType extends Enumeration {
             case "bit" | "int" | "integer" | "long" | "boolean" | "timestamp" => DataType.INTEGER
             case "float" | "double" | "bigdecimal"  => DataType.DECIMAL
             case "[B" => DataType.BLOB
+            case "datetime" => DataType.DATETIME
             case _ => DataType.TEXT
         }
     }

@@ -1,28 +1,26 @@
 package io.qross.psql
 
 import io.qross.core.{DataCell, DataRow}
-import io.qross.jdbc.{DataSource, JDBC}
-import io.qross.setting.{Configurations, Global, Properties}
+import io.qross.jdbc.{DataSource, DataType, JDBC}
+import io.qross.setting.{Configurations, Global}
 import io.qross.time.DateTime
 
 object GlobalVariable {
 
-     val GLOBALS: Set[String] = Global.getClass.getDeclaredMethods.map(_.getName).toSet
+    //val GLOBALS: Set[String] = Global.getClass.getDeclaredMethods.map(_.getName).toSet
     //除环境全局变量的其他全局变量
     val SYSTEM: DataRow = new DataRow()
     val USER: DataRow = new DataRow()
-    val PROGRESS: DataRow = new DataRow()
+    val PROCESS: Set[String] = Set("NOW", "TODAY", "YESTERDAY", "CORES", "COUNT", "TOTAL", "ROWs", "AFFECTED", "USER_ID", "USERNAME", "ROLE")
 
     //Global.getClass.getDeclaredMethods.contains()
     //Global.getClass.getMethod("").invoke(null)
 
-    //从数据库加载全局变量
     if (JDBC.hasQrossSystem) {
-        // USER:NAME -> VALUE
-        DataSource.queryDataTable("SELECT var_name, var_type, var_value FROM qross_variables WHERE var_group='SYSTEM'")
+        DataSource.queryDataTable("SELECT var_group, var_name, var_type, var_value FROM qross_variables WHERE var_group='SYSTEM'")
                 .foreach(row => {
                     SYSTEM.set(
-                        row.getString("var_name")
+                        row.getString("var_name").toUpperCase()
                         , row.getString("var_type") match {
                             case "INTEGER" => row.getLong("var_value")
                             case "DECIMAL" => row.getDouble("var_value")
@@ -33,7 +31,45 @@ object GlobalVariable {
     }
 
     //更新用户变量
-    def set(name: String, value: Any, user: Int = 0): Unit = {
+    def set(name: String, value: Any, user: Int = 0, role: String = "WORKER"): Unit = {
+
+        if (PROCESS.contains(name)) {
+            throw new SQLExecuteException("Can't update process variable. This variable is readonly.")
+        }
+        else if (SYSTEM.contains(name) || Configurations.contains(name)) {
+            if (role == "MASTER") {
+                if (SYSTEM.contains(name)) {
+                    SYSTEM.set(name, value)
+                    //更新数据库
+                    DataSource.queryUpdate(s"""INSERT INTO (var_group, var_type, var_user, var_name, var_value) VALUES ('SYSTEM', ?, 0, ?, ?) ON DUPLICATE KEY UPDATE value=?""", value match {
+                        case i: Int => "INTEGER"
+                        case l: Long => "INTEGER"
+                        case f: Float => "DECIMAL"
+                        case d: Double => "DECIMAL"
+                        case _ => "TEXT"
+                    }, name, value, value)
+                }
+                else if (Configurations.contains(name)) {
+                    Configurations.set(name, value)
+                }
+            }
+            else {
+                throw new SQLExecuteException(s"Can't update system variable. This variable is readonly for $role.")
+            }
+        }
+        else {
+            USER.set(name, value)
+            //更新数据库
+            if (JDBC.hasQrossSystem) {
+                DataSource.queryUpdate(s"""INSERT INTO qross_variables (var_group, var_type, var_user, var_name, var_value) VALUES ('USER', ?, ?, ?, ?) ON DUPLICATE KEY UPDATE var_value=?""", value match {
+                    case i: Int => "INTEGER"
+                    case l: Long => "INTEGER"
+                    case f: Float => "DECIMAL"
+                    case d: Double => "DECIMAL"
+                    case _ => "TEXT"
+                }, user, name, value, value)
+            }
+        }
 
         var group = "NONE"
         if (USER.contains(name)) {
@@ -48,35 +84,35 @@ object GlobalVariable {
             Configurations.set(name, value)
         }
         else {
-            throw new SQLExecuteException("Can't update system variable. This variable is read only.")
-        }
-
-        if (group != "NONE" && JDBC.hasQrossSystem) {
-            val varType = value match {
-                case i: Int => "INTEGER"
-                case l: Long => "INTEGER"
-                case f: Float => "DECIMAL"
-                case d: Double => "DECIMAL"
-                case _ => "STRING"
-            }
-            DataSource.queryUpdate(s"""INSERT INTO (var_group, var_type, var_name, var_value) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE value=?""", group, varType, name, value, value)
+            throw new SQLExecuteException("Can't update system variable. This variable is readonly.")
         }
     }
 
     //得到全局变量的值
-    def get(name: String): DataCell = {
-        val field = name.toUpperCase()
-        if (USER.contains(field)) {
-            USER.getCell(field)
+    def get(name: String, PSQL: PSQL ): DataCell = {
+        if (PROCESS.contains(name)) {
+            name match {
+                case "TODAY" => new DataCell(DateTime.now.setZeroOfDay(), DataType.DATETIME)
+                case "YESTERDAY" => new DataCell(DateTime.now.minusDays(1).setZeroOfDay(), DataType.DATETIME)
+                case "NOW" =>  new DataCell(DateTime.now, DataType.DATETIME)
+                case "COUNT" => new DataCell(PSQL.dh.COUNT, DataType.INTEGER)
+                case "TOTAL" => new DataCell(PSQL.dh.TOTAL, DataType.INTEGER)
+                case "ROWS" => new DataCell(PSQL.ROWS, DataType.INTEGER)
+                case "AFFECTED" => new DataCell(PSQL.AFFECTED, DataType.INTEGER)
+                case "USER_ID" => new DataCell(PSQL.dh.userId, DataType.INTEGER)
+                case "USERNAME" => new DataCell(PSQL.dh.userName, DataType.TEXT)
+                case "ROLE" => new DataCell(PSQL.dh.roleName, DataType.TEXT)
+                case _ => new DataCell(null)
+            }
         }
-        else if (SYSTEM.contains(field)) {
-            SYSTEM.getCell(field)
+        else if (USER.contains(name)) {
+            USER.getCell(name)
         }
-        else if (PROGRESS.contains(field)) {
-            PROGRESS.getCell(field)
+        else if (SYSTEM.contains(name)) {
+            SYSTEM.getCell(name)
         }
-        else if (GLOBALS.contains(field)) {
-            new DataCell(Global.getClass.getMethod(field).invoke(null))
+        else if (Configurations.contains(name)) {
+            new DataCell(Global.getClass.getMethod(name).invoke(null))
         }
         else {
             new DataCell(null)

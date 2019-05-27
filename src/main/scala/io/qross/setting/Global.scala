@@ -5,8 +5,6 @@ import io.qross.time.DateTime
 
 object Global {
 
-    val INSTANTS: Set[String] = Set("NOW", "TODAY", "YESTERDAY", "CORES")
-
     def QROSS_VERSION: String = Configurations.getOrProperty("QROSS_VERSION", "qross.version")
 
     def QROSS_SYSTEM: String = Configurations.get("QROSS_SYSTEM").toUpperCase() //current system name, worker/keeper/monitor

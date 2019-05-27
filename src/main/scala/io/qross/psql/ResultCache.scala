@@ -25,16 +25,16 @@ object ResultCache {
     }
 
 
-    def get(apiName: String, params: String = ""): Any = {
-        if (ALL.contains(apiName) && ALL.get(apiName).contains(params)) {
+    def get(apiName: String, params: String = ""): Option[Any] = {
+        if (ALL.contains(apiName) && ALL(apiName).contains(params)) {
             if (!EXPIRE.contains(apiName)) {
                 EXPIRE.put(apiName, new mutable.HashMap[String, Long])
             }
             EXPIRE(apiName).put(params, DateTime.now.toEpochSecond)
-            ALL(apiName)(params)
+            Some(ALL(apiName)(params))
         }
         else {
-            null
+            None
         }
     }
 
@@ -45,11 +45,20 @@ object ResultCache {
 
     def remove(apiName: String): Unit = {
         ALL.remove(apiName)
+        EXPIRE.remove(apiName)
     }
 
     def remove(apiName: String, params: String): Unit = {
         if (ALL.contains(apiName) && ALL(apiName).contains(params)) {
             ALL(apiName).remove(params)
+            EXPIRE(apiName).remove(params)
+
+            if (EXPIRE(apiName).isEmpty) {
+                EXPIRE.remove(apiName)
+            }
+            if (ALL(apiName).isEmpty) {
+                ALL.remove(apiName)
+            }
         }
     }
 
@@ -59,18 +68,22 @@ object ResultCache {
         if (hour != lastHour) {
             val second = now.toEpochSecond
             //待清除列表
-            val nps = new mutable.ArrayBuffer[NameAndParams]
+            val nps = new mutable.HashMap[String, mutable.ArrayBuffer[String]]()
             for (name <- EXPIRE.keySet) {
                 for (params <- EXPIRE(name).keySet) {
                     if (second - EXPIRE(name)(params) >= 3600) {
-                        nps += new NameAndParams(name, params)
+                        if (!nps.contains(name)) {
+                            nps += name -> new mutable.ArrayBuffer[String]()
+                        }
+                        nps(name) += params
                     }
                 }
             }
 
-            for (np <- nps) {
-                EXPIRE(np.name).remove(np.params)
-                ALL(np.name).remove(np.params)
+            for (n <- nps.keySet) {
+                for (p <- nps(n)) {
+                    remove(n, p)
+                }
             }
 
             nps.clear()

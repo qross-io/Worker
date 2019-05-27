@@ -27,7 +27,7 @@ object Output {
     
     def writeMessage(messages: Any*): Unit = {
         for (message <- messages) {
-            println(DateTime.now + " [INFO] " + message)
+            println(DateTime.now.getString("yyyy-MM-dd HH:mm:ss") + " [INFO] " + message)
         }
     }
 

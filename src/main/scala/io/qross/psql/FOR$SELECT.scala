@@ -5,17 +5,25 @@ import io.qross.ext.TypeExt._
 
 class FOR$SELECT(var variable: String, selectSQL: String) {
 
-    private val variables = variable.split(",").map(v => v.removeVariableModifier().trim)
+    private val fields = variable.split(",").map(v => {
+        if (!v.trim.startsWith("$")) {
+            throw new SQLParseException("In FOR SELECT, loop variable must start with '$'.")
+            ""
+        }
+        else {
+            v.trim.takeAfter(0).$trim("(", ")")
+        }
+    })
 
     def computeMap(dh: DataHub): ForLoopVariables = {
         val loopVars = new ForLoopVariables()
 
         val table = dh.executeDataTable(selectSQL)
-        if (variables.length <= table.columnCount) {
+        if (fields.length <= table.columnCount) {
             table.map(row => {
                 val newRow = DataRow()
-                for (i <- variables.indices) {
-                    newRow.set(variables(i), row.get(i).orNull)
+                for (i <- fields.indices) {
+                    newRow.set(fields(i).toUpperCase, row.get(i).orNull)
                 }
                 newRow
             }).foreach(loopVars.addRow)

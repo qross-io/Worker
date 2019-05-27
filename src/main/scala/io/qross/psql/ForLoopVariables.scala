@@ -20,16 +20,16 @@ class ForLoopVariables {
 
     def contains(field: String): Boolean = {
         if (this.variables.nonEmpty) {
-            this.variables.head.contains(field)
+            this.variables.head.contains(field.toUpperCase)
         }
         else {
             false
         }
     }
 
-    def get(field: String): DataCell = this.variables(this.cursor).getCell(field)
+    def get(field: String): DataCell = this.variables(this.cursor).getCell(field.toUpperCase())
 
     def set(field: String, value: Any): Unit = {
-        this.variables(this.cursor).set(field, value)
+        this.variables(this.cursor).set(field.toUpperCase(), value)
     }
 }
