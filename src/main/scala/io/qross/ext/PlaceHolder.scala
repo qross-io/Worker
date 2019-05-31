@@ -169,13 +169,13 @@ object PlaceHolder {
                     .reverse
                     .foreach(m => {
                         val whole = m.group(0)
-                        val fieldName = m.group(3)
+                        val fieldName = m.group(2)
                         val prefix = whole.takeBefore("$")
 
                         val fieldValue = PSQL.findVariableValue(fieldName)
                         if (fieldValue.isNotNull) {
                             sentence = sentence.replace(whole,
-                                prefix + fieldValue.value.toString) //.useQuotesIf(retainQuotes && fieldValue.dataType == DataType.TEXT)
+                                prefix + fieldValue.value.toString.useQuotesIf(retainQuotes && fieldValue.dataType == DataType.TEXT))
                         }
                     })
 
@@ -192,7 +192,7 @@ object PlaceHolder {
                     .reverse
                     .foreach(m => {
                         val whole = m.group(0)
-                        val fieldName = m.group(3).trim.toUpperCase()
+                        val fieldName = m.group(2)
                         val prefix = whole.takeBefore("@")
 
                         val fieldValue = GlobalVariable.get(fieldName, PSQL)

@@ -91,7 +91,11 @@ class ConditionGroup(expression: String) {
             Output.writeDotLine(" ", condition.field, condition.operator, condition.value, " => ", condition.result)
         }
 
-        conditions(conditions.size - 1).result
+        val result = conditions(conditions.size - 1).result
+
+        conditions.clear()
+
+        result
     }
 
     private def findOutSelect(expression: String, head: String): String = {

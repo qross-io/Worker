@@ -7,11 +7,11 @@ import io.qross.time.DateTime
 
 object GlobalVariable {
 
-    //val GLOBALS: Set[String] = Global.getClass.getDeclaredMethods.map(_.getName).toSet
+    val GLOBALS: Set[String] = Global.getClass.getDeclaredMethods.map(_.getName).toSet
     //除环境全局变量的其他全局变量
     val SYSTEM: DataRow = new DataRow()
     val USER: DataRow = new DataRow()
-    val PROCESS: Set[String] = Set("NOW", "TODAY", "YESTERDAY", "CORES", "COUNT", "TOTAL", "ROWs", "AFFECTED", "USER_ID", "USERNAME", "ROLE")
+    val PROCESS: Set[String] = Set("NOW", "TODAY", "YESTERDAY", "COUNT", "TOTAL", "ROWS", "AFFECTED", "USER_ID", "USERNAME", "ROLE")
 
     //Global.getClass.getDeclaredMethods.contains()
     //Global.getClass.getMethod("").invoke(null)
@@ -41,7 +41,7 @@ object GlobalVariable {
                 if (SYSTEM.contains(name)) {
                     SYSTEM.set(name, value)
                     //更新数据库
-                    DataSource.queryUpdate(s"""INSERT INTO (var_group, var_type, var_user, var_name, var_value) VALUES ('SYSTEM', ?, 0, ?, ?) ON DUPLICATE KEY UPDATE value=?""", value match {
+                    DataSource.queryUpdate(s"""INSERT INTO qross_variables (var_group, var_type, var_user, var_name, var_value) VALUES ('SYSTEM', ?, 0, ?, ?) ON DUPLICATE KEY UPDATE var_value=?""", value match {
                         case i: Int => "INTEGER"
                         case l: Long => "INTEGER"
                         case f: Float => "DECIMAL"
@@ -70,22 +70,6 @@ object GlobalVariable {
                 }, user, name, value, value)
             }
         }
-
-        var group = "NONE"
-        if (USER.contains(name)) {
-            group = "USER"
-            USER.set(name, value)
-        }
-        else if (SYSTEM.contains(name)) {
-            group = "SYSTEM"
-            SYSTEM.set(name, value)
-        }
-        else if (Configurations.contains(name)) {
-            Configurations.set(name, value)
-        }
-        else {
-            throw new SQLExecuteException("Can't update system variable. This variable is readonly.")
-        }
     }
 
     //得到全局变量的值
@@ -111,8 +95,8 @@ object GlobalVariable {
         else if (SYSTEM.contains(name)) {
             SYSTEM.getCell(name)
         }
-        else if (Configurations.contains(name)) {
-            new DataCell(Global.getClass.getMethod(name).invoke(null))
+        else if (GLOBALS.contains(name)) {
+            new DataCell(Class.forName("io.qross.setting.Global").getDeclaredMethod(name).invoke(null))
         }
         else {
             new DataCell(null)

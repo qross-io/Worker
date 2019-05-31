@@ -88,10 +88,4 @@ object Global {
     def KRB_KRB5CONF_PATH: String = Configurations.getOrProperty("KRB_KRB5CONF_PATH", "krb.krb5conf.path")
 
     def CORES: Int = Runtime.getRuntime.availableProcessors
-
-    def NOW: DateTime = DateTime.now
-
-    def TODAY: DateTime = DateTime.now.setZeroOfDay()
-
-    def YESTERDAY: DateTime = DateTime.now.minusDays(1).setZeroOfDay()
 }

@@ -157,16 +157,19 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
         }
 
         if (this.databaseName != "") {
-            this.connection match {
-                case Some(conn) =>
-                    val prest: PreparedStatement = conn.prepareStatement("USE " + this.databaseName)
-                    prest.executeUpdate()
-                    prest.close()
-                case None =>
-            }
+            this.use(this.databaseName)
         }
     }
 
+    def use(databaseName: String): Unit = {
+        this.connection match {
+            case Some(conn) =>
+                val prest: PreparedStatement = conn.prepareStatement("USE " + databaseName)
+                prest.executeUpdate()
+                prest.close()
+            case None =>
+        }
+    }
     
     // ---------- basic command ----------
     
@@ -646,7 +649,7 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
                 this.close()
             }
             if (this.tick == -1 || this.connection.get.isClosed) {
-                while (this.connection.isEmpty && retry < config.retryLimit) {
+                while (this.connection.isEmpty && (config.retryLimit == 0 || retry < config.retryLimit)) {
                     this.open()
                     if (this.connection.isEmpty) {
                         Timer.sleep(1F)

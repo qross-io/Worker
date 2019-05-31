@@ -18,16 +18,11 @@ class FOR$IN(val forItems: String, forCollection: String, val delimiter: String)
 
     USER_VARIABLE.r
             .findAllMatchIn(forItems)
-            .map(m => m.group(0))
+            .map(m => m.group(2))
             .foreach(field => fields += field)
 
     for (i <- fields.indices) {
-        if (i > 0) {
-            separators += declarations.takeBefore(fields(i))
-        }
-        else {
-            separators += ""
-        }
+        separators += declarations.takeBefore(fields(i))
         declarations = declarations.takeAfter(fields(i))
     }
 
@@ -41,11 +36,11 @@ class FOR$IN(val forItems: String, forCollection: String, val delimiter: String)
     def computeMap(PSQL: PSQL): ForLoopVariables = {
         val variablesMaps = new ForLoopVariables()
         val collection = this.forCollection.$eval(PSQL).split(delimiter, -1)
-        for (l <- collection) {
-            var line = l
+        for (i <- collection.indices) {
+            var line = collection(i)
             val row = new DataRow()
             for (j <- fields.indices) {
-                val field = fields(j).toUpperCase
+                val field = fields(j).substring(1).toUpperCase
                 val prefix = separators(j)
                 val suffix = separators(j + 1)
 

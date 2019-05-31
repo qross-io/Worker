@@ -61,7 +61,7 @@ class DataHub () {
     var userName: String = ""
     var roleName: String = "WORKER"
 
-    
+
     // ---------- system ----------
     
     def debug(enabled: Boolean = true): DataHub = {
@@ -137,6 +137,11 @@ class DataHub () {
             case _ => throw new Exception("Unsupported data source parameter format, only support String or DataSource")
         }
 
+        this
+    }
+
+    def use(databaseName: String): DataHub = {
+        CURRENT.use(databaseName)
         this
     }
 

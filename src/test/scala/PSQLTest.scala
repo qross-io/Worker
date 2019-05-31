@@ -1,11 +1,17 @@
+import java.util
 import java.util.regex.Pattern
 
 import io.qross.core.DataHub
 import io.qross.ext.PlaceHolder
 import io.qross.ext.TypeExt._
+import io.qross.jdbc.DataSource
 import io.qross.psql.PSQL._
 import io.qross.psql.Patterns
 import io.qross.psql.Patterns._
+import io.qross.setting.Global
+import org.apache.hadoop.hive.metastore.hbase.HbaseMetastoreProto.Database
+
+import scala.collection.mutable
 
 object PSQLTest {
 
@@ -34,14 +40,31 @@ object PSQLTest {
 //        })
 //
 
-//        System.exit(0)
+//        println(Global.getClass)
+//        println(Global.getClass.getDeclaredMethod("CORES"))
+//        println(Class.forName("io.qross.setting.Global").getDeclaredMethod("CORES").invoke(null))
+//        Global.getClass.getDeclaredMethod("CORES").invoke(null)
+
+
+        //System.exit(0)
 
         val dh = new DataHub()
 
-        dh.signIn(1, "Garfi", "MASTER")
-                .run(
-            """SET @s := 6;
-              | PRINT @today""".stripMargin)
+        dh.openDefault()
+
+         //.signIn(1, "Garfi", "MASTER")
+        dh.signIn(5, "wuzheng", "WORKER")
+
+//        dh.get("SELECT * FROM qross_variables")
+//                        .cache("ars")
+
+        dh.run(
+            """
+               TEMP "ars" # SELECT * FROM qross_variables;
+               OPEN TEMP;
+               GET # SELECT * FROM ars;
+               LIST 20;
+            """.stripMargin)
 
         dh.close()
     }

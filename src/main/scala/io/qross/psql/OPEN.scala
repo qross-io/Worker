@@ -11,7 +11,26 @@ OPEN TEMP;
 OPEN DEFAULT;
 */
 
-class OPEN(var sourceType: String, var source: String, var use: String = "") {
+class OPEN(val sections: String*) {
+
+    var sourceType: String = ""
+    var connectionName: String = ""
+    var databaseName: String = ""
+
+    sections(0).toUpperCase() match {
+        case "CACHE" => sourceType = "CACHE"
+        case "TEMP" => sourceType = "TEMP"
+        case "DEFAULT" => sourceType = "DEFAULT"
+        case _ =>
+            connectionName = sections(0)
+            if (sections.length > 2) {
+                if (sections(1).equalsIgnoreCase("USE")) {
+                    databaseName = sections(2)
+                }
+            }
+    }
+
+    /*
     sourceType = sourceType.$replace("""\s\s""", " ")
     if (use == null) {
         use = ""
@@ -25,4 +44,5 @@ class OPEN(var sourceType: String, var source: String, var use: String = "") {
             throw new SQLParseException("Wrong connection name: " + source)
         }
     }
+    */
 }

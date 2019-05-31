@@ -13,6 +13,6 @@ class FOR$TO(val variable: String, rangeBegin: String, rangeEnd: String) {
     }
 
     def hasNext(PSQL: PSQL): Boolean = {
-        PSQL.findVariableValue(variable).value.asInstanceOf[String].toInt <= parseEnd(PSQL)
+        PSQL.findVariableValue(variable).value.asInstanceOf[Int] <= parseEnd(PSQL)
     }
 }

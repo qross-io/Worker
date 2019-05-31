@@ -38,7 +38,7 @@ object JDBC {
 
     //已保存的数据库连接信息
     val connections = new mutable.HashMap[String, JDBC]()
-    connections += DBType.Memory -> new JDBC(DBType.Memory)
+    connections += DBType.Memory -> new JDBC(DBType.Memory, "jdbc:sqlite::memory:", "org.sqlite.JDBC")
 
     def Qross: JDBC = {
         if (!connections.contains(QROSS)) {
@@ -174,10 +174,7 @@ class JDBC(var dbType: String,
         driver = driver.takeBefore(",")
     }
 
-    if (dbType == DBType.Memory) {
-        connectionString = "jdbc:sqlite::memory:"
-    }
-    else if (dbType == DBType.SQLite && !connectionString.startsWith("jdbc:sqlite:")) {
+    if (dbType == DBType.SQLite && !connectionString.startsWith("jdbc:sqlite:")) {
         connectionString = "jdbc:sqlite:" + connectionString
     }
 

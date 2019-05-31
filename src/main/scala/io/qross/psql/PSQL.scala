@@ -41,11 +41,11 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
     var ROWS: Int = 0 //最后一个SELECT返回的结果数量
     var AFFECTED: Int = 0  //最后一个非SELECT语句影响的数据表行数
 
-    //正在解析的控制语句
+    //正在解析的所有语句, 控制语句包含ELSE和ELSE_IF
     private val PARSING = new mutable.ArrayStack[Statement]
     //正在执行的控制语句
     private val EXECUTING = new mutable.ArrayStack[Statement]
-    //待关闭的控制语句
+    //待关闭的控制语句，如IF, FOR, WHILE等，不保存ELSE和ELSE_IF
     private val TO_BE_CLOSE = new mutable.ArrayStack[Statement]
     //IF条件执行结果
     private val IF_BRANCHES = new mutable.ArrayStack[Boolean]
@@ -62,6 +62,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
                 "WHILE" -> parseWHILE,
                 "SET" -> parseSET,
                 "OPEN" -> parseOPEN,
+                "USE" -> parseUSE,
                 "SAVE" -> parseSAVE,
                 "CACHE" -> parseCACHE,
                 "TEMP" -> parseTEMP,
@@ -86,8 +87,9 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
         "WHILE" -> executeWHILE,
         "END_LOOP" -> executeEND_LOOP,
         "SET" -> executeSET,
+        "USE" -> executeUSE,
         "OPEN" -> executeOPEN,
-        "SAVE" -> executeSAVE,
+        "SAVE" -> executeSAVE, //
         "CACHE" -> executeCACHE,
         "TEMP" -> executeTEMP,
         "GET" -> executeGET,
@@ -114,7 +116,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
         PARSING.pop()
 
         if (PARSING.nonEmpty || TO_BE_CLOSE.nonEmpty) {
-            throw new SQLParseException("Control statement hasn't closed: " + PARSING.last.sentence)
+            throw new SQLParseException("Control statement hasn't closed: " + PARSING.head.sentence)
         }
     }
 
@@ -125,7 +127,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
             PARSER(caption)(sentence)
         }
         else if (Set("INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "TRUNCATE", "ALTER").contains(caption)) {
-            PARSING.last.addStatement(new Statement(caption, sentence))
+            PARSING.head.addStatement(new Statement(caption, sentence))
         }
         else {
             throw new SQLParseException("Unrecognized or unsupported sentence: " + sentence)
@@ -135,13 +137,13 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
     private def parseIF(sentence: String): Unit = {
         if ({m = $IF.matcher(sentence); m}.find) {
             val $if: Statement = new Statement("IF", m.group(0), new ConditionGroup(m.group(1)))
-            PARSING.last.addStatement($if)
+            PARSING.head.addStatement($if)
             //只进栈
             PARSING.push($if)
             //待关闭的控制语句
             TO_BE_CLOSE.push($if)
             //继续解析第一条子语句
-            parseStatement(sentence.substring(m.group(0).length).trim())
+            parseStatement(sentence.takeAfter(m.group(0)).trim())
         }
         else {
             throw new SQLParseException("Incorrect IF sentence: " + sentence)
@@ -151,24 +153,24 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
     private def parseELSE(sentence: String): Unit = {
         if ({m = $ELSE_IF.matcher(sentence); m}.find) {
             val $elsif: Statement = new Statement("ELSE_IF", m.group(0), new ConditionGroup(m.group(1)))
-            if (PARSING.isEmpty || (!(PARSING.last.caption == "IF") && !(PARSING.last.caption == "ELSE_IF"))) {
+            if (PARSING.isEmpty || (!(PARSING.head.caption == "IF") && !(PARSING.head.caption == "ELSE_IF"))) {
                 throw new SQLParseException("Can't find previous IF or ELSE IF clause: " + m.group(0))
             }
             //先出栈再进栈
             PARSING.pop()
-            PARSING.last.addStatement($elsif)
+            PARSING.head.addStatement($elsif)
             PARSING.push($elsif)
             //继续解析子语句
             parseStatement(sentence.substring(m.group(0).length).trim)
         }
         else if ({m = $ELSE.matcher(sentence); m}.find) {
             val $else: Statement = new Statement("ELSE")
-            if (PARSING.isEmpty || (!(PARSING.last.caption == "IF") && !(PARSING.last.caption == "ELSE_IF"))) {
+            if (PARSING.isEmpty || (!(PARSING.head.caption == "IF") && !(PARSING.head.caption == "ELSE_IF"))) {
                 throw new SQLParseException("Can't find previous IF or ELSE IF clause: " + m.group(0))
             }
             //先出栈再进栈
             PARSING.pop()
-            PARSING.last.addStatement($else)
+            PARSING.head.addStatement($else)
             PARSING.push($else)
             //继续解析子语句
             parseStatement(sentence.substring(m.group(0).length).trim)
@@ -181,9 +183,11 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
     private def parseEND(sentence: String): Unit = {
         if ({m = $END_IF.matcher(sentence); m}.find) {
             //检查IF语句是否正常闭合
-            if (TO_BE_CLOSE.isEmpty) throw new SQLParseException("Can't find IF clause: " + m.group)
-            else if (!(TO_BE_CLOSE.last.caption == "IF")) {
-                throw new SQLParseException(TO_BE_CLOSE.last.caption + " hasn't closed: " + TO_BE_CLOSE.last.sentence)
+            if (TO_BE_CLOSE.isEmpty) {
+                throw new SQLParseException("Can't find IF clause: " + m.group)
+            }
+            else if (!(TO_BE_CLOSE.head.caption == "IF")) {
+                throw new SQLParseException(TO_BE_CLOSE.head.caption + " hasn't closed: " + TO_BE_CLOSE.head.sentence)
             }
             else {
                 TO_BE_CLOSE.pop()
@@ -191,15 +195,15 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
             val $endIf: Statement = new Statement("END_IF")
             //只出栈
             PARSING.pop()
-            PARSING.last.addStatement($endIf)
+            PARSING.head.addStatement($endIf)
         }
         else if ({m = $END_LOOP.matcher(sentence); m}.find) {
             //检查FOR语句是否正常闭合
             if (TO_BE_CLOSE.isEmpty) {
                 throw new SQLParseException("Can't find FOR or WHILE clause: " + m.group)
             }
-            else if (!Set("FOR_SELECT", "FOR_IN", "FOR_TO" , "WHILE").contains(TO_BE_CLOSE.last.caption)) {
-                throw new SQLParseException(TO_BE_CLOSE.last.caption + " hasn't closed: " + TO_BE_CLOSE.last.sentence)
+            else if (!Set("FOR_SELECT", "FOR_IN", "FOR_TO" , "WHILE").contains(TO_BE_CLOSE.head.caption)) {
+                throw new SQLParseException(TO_BE_CLOSE.head.caption + " hasn't closed: " + TO_BE_CLOSE.head.sentence)
             }
             else {
                 TO_BE_CLOSE.pop()
@@ -207,7 +211,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
             val $endLoop: Statement = new Statement("END_LOOP")
             //只出栈
             PARSING.pop()
-            PARSING.last.addStatement($endLoop)
+            PARSING.head.addStatement($endLoop)
         }
         else {
             throw new SQLParseException("Incorrect END sentence: " + sentence)
@@ -217,7 +221,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
     private def parseFOR(sentence: String): Unit = {
         if ({m = $FOR$SELECT.matcher(sentence); m}.find) {
             val $for$select: Statement = new Statement("FOR_SELECT", m.group(0), new FOR$SELECT(m.group(1).trim, m.group(2).trim))
-            PARSING.last.addStatement($for$select)
+            PARSING.head.addStatement($for$select)
             //只进栈
             PARSING.push($for$select)
             //待关闭的控制语句
@@ -227,7 +231,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
         }
         else if ({m = $FOR$TO.matcher(sentence); m}.find) {
             val $for$to: Statement = new Statement("FOR_TO", m.group(0), new FOR$TO(m.group(1).trim(), m.group(2).trim(), m.group(3).trim()))
-            PARSING.last.addStatement($for$to)
+            PARSING.head.addStatement($for$to)
 
             //只进栈
             PARSING.push($for$to)
@@ -248,7 +252,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
                         else {
                             ","
                         }).trim.removeQuotes()))
-            PARSING.last.addStatement($for)
+            PARSING.head.addStatement($for)
             //只进栈
             PARSING.push($for)
             //待关闭的控制语句
@@ -264,7 +268,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
     private def parseWHILE(sentence: String): Unit = {
         if ({m = $WHILE.matcher(sentence); m}.find) {
             val $while: Statement = new Statement("WHILE", m.group(0), new ConditionGroup(m.group(1).trim))
-            PARSING.last.addStatement($while)
+            PARSING.head.addStatement($while)
             //只进栈
             PARSING.push($while)
             //待关闭的控制语句
@@ -280,7 +284,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
     private def parseSET(sentence: String): Unit = {
         if ({m = $SET.matcher(sentence); m}.find) {
             val $set: Statement = new Statement("SET", sentence, new SET(m.group(1).trim, m.group(2).trim))
-            PARSING.last.addStatement($set)
+            PARSING.head.addStatement($set)
         }
         else {
             throw new SQLParseException("Incorrect SET sentence: " + sentence)
@@ -289,9 +293,9 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
 
     private def parseOPEN(sentence: String): Unit = {
         if ({m = $OPEN.matcher(sentence); m}.find) {
-            PARSING.last.addStatement(new Statement("OPEN", sentence, new OPEN(m.group(1).trim, m.group(3).trim, m.group(5).trim)))
-            if (m.group(1).endsWith(":")) {
-                parseStatement(sentence.takeAfter(":"))
+            PARSING.head.addStatement(new Statement("OPEN", sentence, new OPEN(sentence.substring(4).trim.split(" ").filter(_ != ""): _*)))
+            if (m.group(1).trim == ":") {
+                parseStatement(sentence.takeAfter(m.group(1)).trim)
             }
         }
         else {
@@ -299,10 +303,19 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
         }
     }
 
+    private def parseUSE(sentence: String): Unit = {
+        if ({m = $USE.matcher(sentence); m}.find) {
+            PARSING.head.addStatement(new Statement("USE", sentence, new USE(sentence.substring(4).trim)))
+        }
+        else {
+            throw new SQLParseException("Incorrect USE sentence: " + sentence)
+        }
+    }
+
     private def parseSAVE(sentence: String): Unit = {
         //save as
         if ({m = $SAVE_AS.matcher(sentence); m}.find) {
-            PARSING.last.addStatement(new Statement("SAVE", sentence, new SAVE(m.group(1), m.group(3))))
+            PARSING.head.addStatement(new Statement("SAVE", sentence, new SAVE(m.group(1), m.group(3))))
             if (m.group(1).endsWith(":")) {
                 parseStatement(sentence.takeAfter(":"))
             }
@@ -315,7 +328,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
     private def parseCACHE(sentence: String): Unit = {
         if ({m = $CACHE.matcher(sentence); m}.find) {
             val $cache = new Statement("CACHE", sentence.takeBefore("#"), new CACHE(m.group(1).trim, sentence.takeAfter("#").trim))
-            PARSING.last.addStatement($cache)
+            PARSING.head.addStatement($cache)
         }
         else {
             throw new SQLParseException("Incorrect CACHE sentence: " + sentence)
@@ -325,7 +338,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
     private def parseTEMP(sentence: String): Unit = {
         if ({m = $TEMP.matcher(sentence); m}.find) {
             val $temp = new Statement("TEMP", sentence.takeBefore("#"), new TEMP(m.group(1).trim, sentence.takeAfter("#").trim))
-            PARSING.last.addStatement($temp)
+            PARSING.head.addStatement($temp)
         }
         else {
             throw new SQLParseException("Incorrect TEMP sentence: " + sentence)
@@ -334,7 +347,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
 
     private def parseGET(sentence: String): Unit = {
         if ({m = $GET.matcher(sentence); m}.find) {
-            PARSING.last.addStatement(new Statement("GET", sentence, new GET(sentence.takeAfter("#"))))
+            PARSING.head.addStatement(new Statement("GET", sentence, new GET(sentence.takeAfter("#").trim())))
         }
         else {
             throw new SQLParseException("Incorrect GET sentence: " + sentence)
@@ -343,7 +356,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
 
     private def parsePASS(sentence: String): Unit = {
         if ({m = $PASS.matcher(sentence); m}.find) {
-            PARSING.last.addStatement(new Statement("PASS", sentence, new PASS(sentence.takeAfter("#"))))
+            PARSING.head.addStatement(new Statement("PASS", sentence, new PASS(sentence.takeAfter("#"))))
         }
         else {
             throw new SQLParseException("Incorrect PASS sentence: " + sentence)
@@ -352,7 +365,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
 
     private def parsePUT(sentence: String): Unit = {
         if ({m = $PUT.matcher(sentence); m}.find) {
-            PARSING.last.addStatement(new Statement("PUT", sentence, new PUT(sentence.takeAfter("#"))))
+            PARSING.head.addStatement(new Statement("PUT", sentence, new PUT(sentence.takeAfter("#"))))
         }
         else {
             throw new SQLParseException("Incorrect PUT sentence: " + sentence)
@@ -361,7 +374,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
 
     private def parseOUT(sentence: String): Unit = {
         if ({m = $OUT.matcher(sentence); m}.find) {
-            PARSING.last.addStatement(new Statement("OUT", sentence, new OUT(m.group(1).toUpperCase(), m.group(2), sentence.takeAfter("#").trim)))
+            PARSING.head.addStatement(new Statement("OUT", sentence, new OUT(m.group(1).toUpperCase(), m.group(2), sentence.takeAfter("#").trim)))
         }
         else {
             throw new SQLParseException("Incorrect OUT sentence: " + sentence)
@@ -370,7 +383,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
 
     private def parsePRINT(sentence: String): Unit = {
         if ({m = $PRINT.matcher(sentence); m}.find) {
-            PARSING.last.addStatement(new Statement("PRINT", sentence, new PRINT(m.group(1), m.group(2).trim)))
+            PARSING.head.addStatement(new Statement("PRINT", sentence, new PRINT(m.group(1), m.group(2).trim)))
         }
         else {
             throw new SQLParseException("Incorrect PRINT sentence: " + sentence)
@@ -379,7 +392,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
 
     private def parseLIST(sentence: String): Unit = {
         if ({m = $LIST.matcher(sentence); m}.find) {
-            PARSING.last.addStatement(new Statement("LIST", sentence, new LIST(m.group(1))))
+            PARSING.head.addStatement(new Statement("LIST", sentence, new LIST(m.group(1))))
         }
         else {
             throw new SQLParseException("Incorrect LIST sentence: " + sentence)
@@ -387,7 +400,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
     }
 
     private def parseSELECT(sentence: String): Unit = {
-        PARSING.last.addStatement(new Statement("SELECT", sentence))
+        PARSING.head.addStatement(new Statement("SELECT", sentence))
     }
 
     /* EXECUTE */
@@ -450,7 +463,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
         EXECUTING.push(statement)
         while (toLoop.hasNext(this)) {
             this.execute(statement.statements)
-            this.updateVariableValue(toLoop.variable, this.findVariableValue(toLoop.variable).value.asInstanceOf[String].toInt + 1)
+            this.updateVariableValue(toLoop.variable, this.findVariableValue(toLoop.variable).value.asInstanceOf[Int] + 1)
         }
     }
 
@@ -472,7 +485,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
     }
 
     private def executeEND_LOOP(statement: Statement): Unit = {
-        if (Set("FOR_SELECT", "FOR_IN").contains(EXECUTING.last.caption)) {
+        if (Set("FOR_SELECT", "FOR_IN").contains(EXECUTING.head.caption)) {
             FOR_VARIABLES.pop()
         }
         EXECUTING.pop()
@@ -484,12 +497,17 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
 
     private def executeOPEN(statement: Statement): Unit = {
         val $open = statement.instance.asInstanceOf[OPEN]
-        $open.source match {
-            case "CACHE" => dh.openCache()
+        $open.sourceType match {
+            case "CACHE" => dh.openCache().get("select * from ars").show(20)
             case "TEMP" => dh.openTemp()
             case "DEFAULT" => dh.openDefault()
-            case _ => dh.open($open.source.$eval(this), $open.use.$eval(this))
+            case _ => dh.open($open.connectionName.$eval(this), $open.databaseName.$eval(this))
         }
+    }
+
+    private def executeUSE(statement: Statement): Unit = {
+        val $use = statement.instance.asInstanceOf[USE]
+        dh.use($use.databaseName.$eval(this))
     }
 
     private def executeSAVE(statement: Statement): Unit = {
@@ -647,7 +665,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
             }
 
             if (!found) {
-                EXECUTING.last.setVariable(name, value)
+                EXECUTING.head.setVariable(name, value)
             }
 
         }
@@ -668,8 +686,8 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
         if (symbol == "$") {
             breakable {
                 for (i <- FOR_VARIABLES.indices) {
-                    if (FOR_VARIABLES(i).contains(field)) {
-                        cell = FOR_VARIABLES(i).get(field)
+                    if (FOR_VARIABLES(i).contains(name)) {
+                        cell = FOR_VARIABLES(i).get(name)
                         break
                     }
                 }
@@ -677,8 +695,8 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
 
             breakable {
                 for (i <- EXECUTING.indices) {
-                    if (EXECUTING(i).containsVariable(field)) {
-                        cell = EXECUTING(i).getVariable(field)
+                    if (EXECUTING(i).containsVariable(name)) {
+                        cell = EXECUTING(i).getVariable(name)
                         break
                     }
                 }
@@ -692,7 +710,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
         cell
     }
 
-    //公开方法
+    //传递参数和数据, Spring Boot的httpRequest参数
     def $with(params: Map[String, Array[String]], defaultValue: String = ""): PSQL = {
 
         for (paramName <- params.keySet) {
@@ -720,6 +738,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
         this
     }
 
+    //传递参数和数据
     def $with(params: Map[String, String]): PSQL = {
 
         for ((paramName, paramValue) <- params) {

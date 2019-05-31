@@ -11,7 +11,8 @@ object Patterns {
     val $ELSE_IF: Pattern = Pattern.compile("^ELSE? ?IF\\s+(.+?)\\s+THEN", Pattern.CASE_INSENSITIVE)
     val $ELSE: Pattern = Pattern.compile("^ELSE", Pattern.CASE_INSENSITIVE)
     val $END_IF: Pattern = Pattern.compile("""^END\s*IF""", Pattern.CASE_INSENSITIVE)
-    val $FOR$SELECT: Pattern = Pattern.compile("""^FOR\s+(.+?)\s+IN\s+(SELECT\\s+.+)\s+LOOP""", Pattern.CASE_INSENSITIVE)
+
+    val $FOR$SELECT: Pattern = Pattern.compile( """^FOR\s+(.+?)\s+IN\s+(\(SELECT\s+.+\))\s+LOOP""", Pattern.CASE_INSENSITIVE)
     val $FOR$TO: Pattern = Pattern.compile("^FOR\\s+(.+?)\\s+IN\\s+(.+?)\\s+TO\\s+(.+)\\s+LOOP", Pattern.CASE_INSENSITIVE)
     val $FOR$IN: Pattern = Pattern.compile("^FOR\\s+(.+?)\\s+IN\\s+(.+?)(\\s+DELIMITED\\s+BY\\s+(.+))?\\s+LOOP", Pattern.CASE_INSENSITIVE)
     val $WHILE: Pattern = Pattern.compile("^WHILE\\s+(.+)\\s+LOOP", Pattern.CASE_INSENSITIVE)
@@ -42,11 +43,12 @@ object Patterns {
     //val $VARIABLE: Pattern = Pattern.compile("""\$\(?([a-z_][a-z0-9_]*))?""", Pattern.CASE_INSENSITIVE)
 
     //v0.5.9
-    val $OPEN: Pattern = Pattern.compile("""^OPEN\s+((\S+\s+)*?)(\S+)(\s+USE\s+(\S+))?\s*(:|$)""", Pattern.CASE_INSENSITIVE)
-    val $USE: Pattern = Pattern.compile("""^USE\s+(\S+)$""")
+    //"""^OPEN\s+((\S+\s+)*?)(\S+)(\s+USE\s+(\S+))?\s*(:|$)"""
+    val $OPEN: Pattern = Pattern.compile("""^OPEN\s+.+?(:\s+|$)""", Pattern.CASE_INSENSITIVE)
+    val $USE: Pattern = Pattern.compile("""^USE\s+""")
     val $SAVE_AS: Pattern = Pattern.compile("""^SAVE\s*AS\s+((\S+\s+)*?)(\S+)(\s+USE\s+(\S+))?\s*:?$""", Pattern.CASE_INSENSITIVE)
-    val $CACHE: Pattern = Pattern.compile("""^CACHE\s+(\S+)#""", Pattern.CASE_INSENSITIVE)
-    val $TEMP: Pattern = Pattern.compile("""^TEMP\s+(\S+)#""", Pattern.CASE_INSENSITIVE)
+    val $CACHE: Pattern = Pattern.compile("""^CACHE\s+(\S+)\s*#""", Pattern.CASE_INSENSITIVE)
+    val $TEMP: Pattern = Pattern.compile("""^TEMP\s+(\S+)\s*#""", Pattern.CASE_INSENSITIVE)
     val $GET: Pattern = Pattern.compile("""^GET\s*#""", Pattern.CASE_INSENSITIVE)
     val $PASS: Pattern = Pattern.compile("""^PASS\s*#""", Pattern.CASE_INSENSITIVE)
     val $PUT: Pattern = Pattern.compile("""^PUT\s*#""", Pattern.CASE_INSENSITIVE)
