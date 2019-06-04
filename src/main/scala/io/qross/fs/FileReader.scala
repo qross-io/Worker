@@ -10,6 +10,7 @@ import io.qross.setting.Global
 import io.qross.thread.{Cube, Parallel}
 import io.qross.time.Timer
 import io.qross.ext._
+import io.qross.fs.FilePath._
 
 //在hive相关的包中
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
@@ -28,7 +29,7 @@ case class FileReader(filePath: String) {
     //field, defaultValue
     private val fields = new mutable.LinkedHashMap[String, String]()
     
-    private val file = new File(FilePath.locate(filePath))
+    private val file = new File(filePath.locate())
     if (!file.exists) throw new IOException("File not found: " + filePath)
     private val extension = filePath.substring(filePath.lastIndexOf("."))
     

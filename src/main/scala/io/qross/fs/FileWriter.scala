@@ -1,13 +1,13 @@
 package io.qross.fs
 
 import java.io._
-
+import io.qross.fs.FilePath._
 import io.qross.core.DataTable
 
 case class FileWriter(filePath: String, deleteFileIfExists: Boolean = true) {
 
     private var delimiter = "," //default delimiter when you write a collection
-    private val file = new File(FilePath.locate(filePath))
+    private val file = new File(filePath.locate())
 
     if (file.exists() && deleteFileIfExists) {
         file.delete()

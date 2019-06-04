@@ -69,6 +69,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
                 "GET" -> parseGET,
                 "PASS" -> parsePASS,
                 "PUT" -> parsePUT,
+                "PREP" -> parsePREP,
                 "OUT" -> parseOUT,
                 "PRINT" -> parsePRINT,
                 "LIST" -> parseLIST,
@@ -95,6 +96,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
         "GET" -> executeGET,
         "PASS" -> executePASS,
         "PUT" -> executePUT,
+        "PREP" -> executePREP,
         "OUT" -> executeOUT,
         "LIST" -> executeLIST,
         "PRINT" -> executePRINT,
@@ -293,9 +295,9 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
 
     private def parseOPEN(sentence: String): Unit = {
         if ({m = $OPEN.matcher(sentence); m}.find) {
-            PARSING.head.addStatement(new Statement("OPEN", sentence, new OPEN(sentence.substring(4).trim.split(" ").filter(_ != ""): _*)))
-            if (m.group(1).trim == ":") {
-                parseStatement(sentence.takeAfter(m.group(1)).trim)
+            PARSING.head.addStatement(new Statement("OPEN", sentence, new OPEN(m.group(1).trim.split(" ").filter(_ != ""): _*)))
+            if (m.group(2).trim == ":") {
+                parseStatement(sentence.takeAfter(m.group(2)).trim)
             }
         }
         else {
@@ -314,10 +316,10 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
 
     private def parseSAVE(sentence: String): Unit = {
         //save as
-        if ({m = $SAVE_AS.matcher(sentence); m}.find) {
-            PARSING.head.addStatement(new Statement("SAVE", sentence, new SAVE(m.group(1), m.group(3))))
-            if (m.group(1).endsWith(":")) {
-                parseStatement(sentence.takeAfter(":"))
+        if ({m = $SAVE$AS.matcher(sentence); m}.find) {
+            PARSING.head.addStatement(new Statement("SAVE", sentence, new SAVE$AS(m.group(1).trim.split(" ").filter(_ != ""): _*)))
+            if (m.group(2).trim == ":") {
+                parseStatement(sentence.takeAfter(":").trim)
             }
         }
         else {
@@ -356,7 +358,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
 
     private def parsePASS(sentence: String): Unit = {
         if ({m = $PASS.matcher(sentence); m}.find) {
-            PARSING.head.addStatement(new Statement("PASS", sentence, new PASS(sentence.takeAfter("#"))))
+            PARSING.head.addStatement(new Statement("PASS", sentence, new PASS(sentence.takeAfter("#").trim())))
         }
         else {
             throw new SQLParseException("Incorrect PASS sentence: " + sentence)
@@ -365,10 +367,19 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
 
     private def parsePUT(sentence: String): Unit = {
         if ({m = $PUT.matcher(sentence); m}.find) {
-            PARSING.head.addStatement(new Statement("PUT", sentence, new PUT(sentence.takeAfter("#"))))
+            PARSING.head.addStatement(new Statement("PUT", sentence, new PUT(sentence.takeAfter("#").trim())))
         }
         else {
             throw new SQLParseException("Incorrect PUT sentence: " + sentence)
+        }
+    }
+
+    private def parsePREP(sentence: String): Unit = {
+        if ({m = $PREP.matcher(sentence); m}.find) {
+            PARSING.head.addStatement(new Statement("PREP", sentence, new PREP(sentence.takeAfter("#").trim())))
+        }
+        else {
+            throw new SQLParseException("Incorrect PREP sentence: " + sentence)
         }
     }
 
@@ -498,7 +509,7 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
     private def executeOPEN(statement: Statement): Unit = {
         val $open = statement.instance.asInstanceOf[OPEN]
         $open.sourceType match {
-            case "CACHE" => dh.openCache().get("select * from ars").show(20)
+            case "CACHE" => dh.openCache()
             case "TEMP" => dh.openTemp()
             case "DEFAULT" => dh.openDefault()
             case _ => dh.open($open.connectionName.$eval(this), $open.databaseName.$eval(this))
@@ -511,17 +522,18 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
     }
 
     private def executeSAVE(statement: Statement): Unit = {
-        val $save = statement.instance.asInstanceOf[SAVE]
+        val $save = statement.instance.asInstanceOf[SAVE$AS]
         $save.targetType match {
-            case "CACHE TABLE" => dh.cache($save.target.$eval(this))
-            case "TEMP TABLE" => dh.temp($save.target.$eval(this))
-            case _ =>
-                $save.target.$eval(this) match {
-                    case "CACHE" => dh.saveAsCache()
-                    case "TEMP" => dh.saveAsTemp()
+            case "CACHE TABLE" => dh.cache($save.targetName.$eval(this))
+            case "TEMP TABLE" => dh.temp($save.targetName.$eval(this))
+            case "CACHE" => dh.saveAsCache()
+            case "TEMP" => dh.saveAsTemp()
+            case "JDBC" =>
+                $save.targetName match {
                     case "DEFAULT" => dh.saveAsDefault()
-                    case _ => dh.saveAs($save.target.$eval(this), $save.use.$eval(this))
+                    case _ => dh.saveAs($save.targetName.$eval(this), $save.databaseName.$eval(this))
                 }
+            case _ =>
         }
     }
 
@@ -548,6 +560,11 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
     private def executePUT(statement: Statement): Unit = {
         val $put = statement.instance.asInstanceOf[PUT]
         dh.put($put.nonQuerySQL.$place(this))
+    }
+
+    private def executePREP(statement: Statement): Unit = {
+        val $prep = statement.instance.asInstanceOf[PREP]
+        dh.prep($prep.nonQuerySQL)
     }
 
     private def executeOUT(statement: Statement): Unit = {

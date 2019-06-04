@@ -85,18 +85,19 @@ object PlaceHolder {
                     .r
                     .findAllMatchIn(sentence)
                     .toList
-                    .sortBy(m => m.group(3))
+                    .sortBy(m => m.group(4))
                     .reverse
                     .foreach(m => {
 
                         val whole = m.group(0)
-                        val fieldName = m.group(3)
-                        val symbol = m.group(2)
-                        val prefix = whole.takeBefore(symbol) //前缀
+                        val fieldName = m.group(4)
+                        val symbol = m.group(3)
+                        val prefix = m.group(1) //前缀
+                        val suffix = if (!m.group(2).contains("(") && m.group(2).contains(")")) ")" else ""
 
                         if (symbol == "#") {
                             if (row.contains(fieldName)) {
-                                sentence = sentence.replace(whole, prefix + row.getString(fieldName))
+                                sentence = sentence.replace(whole, prefix + row.getString(fieldName) + suffix)
                             }
                         }
                         else if (symbol == "&") {
@@ -104,13 +105,13 @@ object PlaceHolder {
                                 sentence = sentence.replace(whole, (row.getDataType(fieldName), row.get(fieldName)) match {
                                     case (Some(dataType), Some(value)) =>
                                         if (value == null) {
-                                            prefix + "NULL"
+                                            prefix + "NULL" + suffix
                                         }
                                         else if (dataType == DataType.INTEGER || dataType == DataType.DECIMAL) {
-                                            prefix + value.toString
+                                            prefix + value.toString + suffix
                                         }
                                         else {
-                                            prefix + "'" + value.toString.replace("'", "''") + "'"
+                                            prefix + "'" + value.toString.replace("'", "''") + "'" + suffix
                                         }
                                     case _ => prefix
                                 })

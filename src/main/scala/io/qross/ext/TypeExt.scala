@@ -1,5 +1,6 @@
 package io.qross.ext
 
+import java.io.File
 import java.util.regex.{Matcher, Pattern}
 
 import io.qross.core.DataCell
@@ -208,6 +209,33 @@ object TypeExt {
                 while ({m = p.matcher(string); m}.find()) {
                     string = m.replaceAll(newChar)
                 }
+                string
+            }
+        }
+
+        def ifEmpty(defaultValue: String): String = {
+            if (string == "") {
+                defaultValue
+            }
+            else {
+                string
+            }
+        }
+
+        def ifNull(defaultValue: String): String = {
+            if (string == null) {
+                defaultValue
+            }
+            else {
+                string
+            }
+        }
+
+        def ifNullOrEmpty(defaultValue: String): String = {
+            if (string == null || string == "") {
+                defaultValue
+            }
+            else {
                 string
             }
         }

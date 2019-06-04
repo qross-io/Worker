@@ -1,7 +1,8 @@
 package io.qross.net
 
 import io.qross.core.DataRow
-import io.qross.fs.{FilePath, OpenResourceFile}
+import io.qross.fs.OpenResourceFile
+import io.qross.fs.FilePath._
 import io.qross.jdbc.{DataSource, JDBC}
 import io.qross.setting.Global
 import io.qross.time.Timer
@@ -85,7 +86,7 @@ class Email(private var title: String) {
     
     def attach(paths: String*): Email = {
         paths.foreach(path => {
-            this.attachments += FilePath.locate(path)
+            this.attachments += path.locate()
         })
         this
     }

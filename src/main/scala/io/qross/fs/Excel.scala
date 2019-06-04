@@ -8,7 +8,7 @@ import io.qross.jdbc.DataType
 import io.qross.jdbc.DataType.DataType
 import io.qross.net.Email
 import io.qross.setting.Global
-import io.qross.ext._
+import io.qross.fs.FilePath._
 import org.apache.poi.hssf.record.cf.FontFormatting
 import org.apache.poi.hssf.usermodel.{HSSFDataFormat, HSSFWorkbook}
 import org.apache.poi.hssf.util.HSSFColor.HSSFColorPredefined
@@ -236,7 +236,7 @@ class Excel(val fileName: String) {
     private val CLASSIC = "2003-"
     private val WRONG = "not a excel file"
 
-    val path: String = FilePath.locate(if (fileName.contains(".")) fileName else fileName + ".xlsx")
+    val path: String = {if (fileName.contains(".")) fileName else fileName + ".xlsx"}.locate()
     val file = new File(path)
 
     def fromTemplate(templateName: String): Excel = {

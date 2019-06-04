@@ -7,6 +7,7 @@ import io.qross.ext.Output._
 import io.qross.ext.PlaceHolder._
 import io.qross.ext.TypeExt._
 import io.qross.fs._
+import io.qross.fs.FilePath._
 import io.qross.jdbc.{DataSource, JDBC}
 import io.qross.jdbc.DataType.DataType
 import io.qross.net.{Email, HttpClient, Json}
@@ -24,7 +25,7 @@ class DataHub () {
     private val SOURCES = mutable.HashMap[String, DataSource]()
 
     //temp database
-    private val holder = s"temp_${DateTime.now.getString("yyyyMMddHHmmssSSS")}_${Math.round(Math.random() * 10000000D)}.sqlite"
+    private val holder = s"temp_${DateTime.now.getString("yyyyMMddHHmmssSSS")}_${Math.round(Math.random() * 10000000D)}.sqlite".locate()
 
     private var CURRENT: DataSource = _   //current dataSource - open
     private var TARGET: DataSource = _    //current dataDestination - saveAs
@@ -226,28 +227,28 @@ class DataHub () {
     }
 
     def saveAsNewTextFile(fileNameOrFullPath: String, delimiter: String = ","): DataHub = {
-        val path = FilePath.locate(fileNameOrFullPath)
+        val path = fileNameOrFullPath.locate()
         FileWriter(path, true).delimit(delimiter).writeTable(TABLE).close()
         ZIP.addFile(path)
         this
     }
     
     def saveAsTextFile(fileNameOrFullPath: String, delimiter: String = ","): DataHub = {
-        val path = FilePath.locate(fileNameOrFullPath)
+        val path = fileNameOrFullPath.locate()
         FileWriter(path, false).delimit(delimiter).writeTable(TABLE).close()
         ZIP.addFile(path)
         this
     }
 
     def saveAsNewCsvFile(fileNameOrFullPath: String): DataHub = {
-        val path = FilePath.locate(fileNameOrFullPath)
+        val path = fileNameOrFullPath.locate()
         FileWriter(path, true).delimit(",").writeTable(TABLE).close()
         ZIP.addFile(path)
         this
     }
 
     def saveAsCsvFile(fileNameOrFullPath: String): DataHub = {
-        val path = FilePath.locate(fileNameOrFullPath)
+        val path = fileNameOrFullPath.locate()
         FileWriter(path, false).delimit(",").writeTable(TABLE).close()
         ZIP.addFile(path)
         this
@@ -528,22 +529,22 @@ class DataHub () {
     }
 
     def deleteFile(fileName: String): DataHub = {
-        new File(FilePath.locate(fileName)).delete()
+        fileName.delete()
         this
     }
 
     def andZip(fileNameOrFullPath: String): DataHub = {
-        ZIP.compress(FilePath.locate(fileNameOrFullPath))
+        ZIP.compress(fileNameOrFullPath.locate())
         this
     }
 
     def andZipAll(fileNameOrFullPath: String): DataHub = {
-        ZIP.compressAll(FilePath.locate(fileNameOrFullPath))
+        ZIP.compressAll(fileNameOrFullPath.locate())
         this
     }
 
     def addFileToZipList(fileNameOrFullPath: String): DataHub = {
-        ZIP.addFile(FilePath.locate(fileNameOrFullPath))
+        ZIP.addFile(fileNameOrFullPath.locate())
         this
     }
 
@@ -702,7 +703,7 @@ class DataHub () {
         })
 
         if (!SOURCES.contains("TEMP")) {
-            SOURCES += "TEMP" -> new DataSource(FilePath.locate(holder))
+            SOURCES += "TEMP" -> new DataSource(holder)
         }
 
         //var createSQL = "CREATE TABLE IF NOT EXISTS " + tableName + " (__pid INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL UNIQUE"
@@ -933,7 +934,7 @@ class DataHub () {
     }
     
     //execute SQL on target dataSource
-    def fit(nonQuerySQL: String, values: Any*): DataHub = {
+    def prep(nonQuerySQL: String, values: Any*): DataHub = {
         TARGET.executeNonQuery(nonQuerySQL, values: _*)
         this
     }
@@ -1509,6 +1510,6 @@ class DataHub () {
         blockSQLs.clear()
         processSQLs.clear()
 
-        FilePath.delete(holder)
+        holder.delete()
     }
 }

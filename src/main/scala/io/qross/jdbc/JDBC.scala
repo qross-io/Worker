@@ -99,27 +99,36 @@ object JDBC {
         else if (Properties.contains(connectionName + ".url")) {
             connectionString = Properties.get(connectionName + ".url")
         }
+        else if (connectionName.endsWith(".sqlite")) {
+            dbType = DBType.SQLite
+            connectionString = "jdbc:sqlite:" + connectionName
+            driver = "org.sqlite.JDBC"
+        }
         else {
-            throw new Exception(s"""Can't find connection string of connection name "$connectionName"" in properties.""")
+            throw new Exception(s"""Can't find connection string of connection name "$connectionName" in properties.""")
         }
 
-        breakable {
-            for (name <- JDBC.drivers.keySet) {
-                if (connectionName.contains(name) || connectionString.contains(name)) {
-                    dbType = name
+        if (dbType == "") {
+            breakable {
+                for (name <- JDBC.drivers.keySet) {
+                    if (connectionName.contains(name) || connectionString.contains(name)) {
+                        dbType = name
+                    }
                 }
             }
         }
 
-        if (Properties.contains(connectionName + ".driver")) {
-            driver = Properties.get(connectionName + ".driver")
-        }
-
         if (driver == "") {
-            breakable {
-                for (name <- JDBC.drivers.keySet) {
-                    if (connectionName.contains(name) || connectionString.contains(name)) {
-                        driver = JDBC.drivers(name)
+            if (Properties.contains(connectionName + ".driver")) {
+                driver = Properties.get(connectionName + ".driver")
+            }
+
+            if (driver == "") {
+                breakable {
+                    for (name <- JDBC.drivers.keySet) {
+                        if (connectionName.contains(name) || connectionString.contains(name)) {
+                            driver = JDBC.drivers(name)
+                        }
                     }
                 }
             }

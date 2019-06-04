@@ -12,6 +12,10 @@ object DataType extends Enumeration {
     val BLOB: DataType = Value("BLOB")
     val NULL: DataType = Value("NULL")
     val DATETIME: DataType = Value("DATETIME")
+    val BOOLEAN: DataType = Value("BOOLEAN")
+    val TABLE: DataType = Value("TABLE")
+    val ROW: DataType = Value("ROW")
+    val LIST: DataType = Value("LIST")
     //val NUMBER: DataType = Value("REAL")
     
     def ofClassName(value: String): DataType = {

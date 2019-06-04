@@ -53,18 +53,27 @@ object PSQLTest {
         dh.openDefault()
 
          //.signIn(1, "Garfi", "MASTER")
-        dh.signIn(5, "wuzheng", "WORKER")
+        dh.signIn(5, "wuzheng")
 
-//        dh.get("SELECT * FROM qross_variables")
-//                        .cache("ars")
+//        dh.openDefault()
+//            .get("SELECT * FROM qross_variables")
+//                .cache("ars")
+//        .openCache()
+//            .get("SELECT var_name, var_value FROM ars")
+//        .saveAsDefault()
+//            .put("INSERT INTO tc (status, info) VALUES ('#var_name', &var_value)")
 
         dh.run(
             """
-               TEMP "ars" # SELECT * FROM qross_variables;
-               OPEN TEMP;
-               GET # SELECT * FROM ars;
-               LIST 20;
-            """.stripMargin)
+                PRINT "HELLO WORLD";
+                OPEN DEFAULT:
+                    CACHE "ars" # SELECT * FROM qross_variables;
+                OPEN CACHE:
+                    GET # SELECT var_name, var_value FROM ars;
+                LIST 20;
+                SAVE AS DEFAULT:
+                    PUT # INSERT INTO tc (status, info) VALUES ('#var_name', &var_value);
+            """)
 
         dh.close()
     }

@@ -1,13 +1,12 @@
 package io.qross.setting
 
 import io.qross.ext.TypeExt._
-import io.qross.time.DateTime
 
 object Global {
 
     def QROSS_VERSION: String = Configurations.getOrProperty("QROSS_VERSION", "qross.version")
 
-    def QROSS_SYSTEM: String = Configurations.get("QROSS_SYSTEM").toUpperCase() //current system name, worker/keeper/monitor
+    def QROSS_SYSTEM: String = Configurations.getOrProperty("QROSS_SYSTEM", "qross.system").toUpperCase() //current system name, worker/keeper/monitor
 
     def COMPANY_NAME: String = Configurations.getOrProperty("COMPANY_NAME", "company.name")
 
@@ -15,11 +14,11 @@ object Global {
 
     def USER_HOME: String = System.getProperty("user.dir").toDir
 
-    def QROSS_HOME: String = Configurations.getOrProperty("QROSS_HOME", "qross.home", USER_HOME).toDir.replace("%USER_HOME", USER_HOME).replace("//", "/")
+    def QROSS_HOME: String = Configurations.getOrProperty("QROSS_HOME", "qross.home").ifNullOrEmpty(USER_HOME).toDir.replace("%USER_HOME", USER_HOME).replace("//", "/")
 
-    def QROSS_WORKER_HOME: String = Configurations.getOrProperty("QROSS_WORKER_HOME", "qross.worker.home", QROSS_HOME + "/worker/").toDir.replace("%QROSS_HOME", QROSS_HOME).replace("%USER_HOME", USER_HOME).replace("//", "/")
+    def QROSS_WORKER_HOME: String = Configurations.getOrProperty("QROSS_WORKER_HOME", "qross.worker.home").ifNullOrEmpty(QROSS_HOME + "/worker/").toDir.replace("%QROSS_HOME", QROSS_HOME).replace("%USER_HOME", USER_HOME).replace("//", "/")
 
-    def QROSS_KEEPER_HOME: String = Configurations.getOrProperty("QROSS_KEEPER_HOME", "qross.keeper.home", QROSS_HOME + "/keeper/").toDir.replace("%QROSS_HOME", QROSS_HOME).replace("%USER_HOME", USER_HOME).replace("//", "/")
+    def QROSS_KEEPER_HOME: String = Configurations.getOrProperty("QROSS_KEEPER_HOME", "qross.keeper.home").ifNullOrEmpty(QROSS_HOME + "/keeper/").toDir.replace("%QROSS_HOME", QROSS_HOME).replace("%USER_HOME", USER_HOME).replace("//", "/")
 
     def JAVA_BIN_HOME: String = Configurations.getOrProperty("JAVA_BIN_HOME", "java.bin.home")
 
@@ -49,7 +48,7 @@ object Global {
 
     def LOGS_LEVEL: String = Configurations.getOrProperty("logs.level", "LOGS_LEVEL", "DEBUG").toUpperCase
 
-    def CONCURRENT_BY_CPU_CORES: Int = Configurations.getOrProperty("CONCURRENT_BY_CPU_CORES", "concurrent.by.cpu.cores", "4").toInt
+    def CONCURRENT_BY_CPU_CORES: Int = Configurations.getOrProperty("CONCURRENT_BY_CPU_CORES", "concurrent.by.cpu.cores").ifNullOrEmpty("4").toInt
 
     def EMAIL_EXCEPTIONS_TO_DEVELOPER: Boolean = Configurations.getOrProperty("EMAIL_EXCEPTIONS_TO_DEVELOPER", "email.exceptions.to.developer").toBooleanOrElse(true)
 
