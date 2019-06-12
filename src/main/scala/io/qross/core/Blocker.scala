@@ -35,6 +35,6 @@ class Blocker(source: DataSource, tanks: Int = 3) extends Thread {
         ds.close()
 
         Blocker.CUBE.wipe()
-        Output.writeMessage("Blocker Thread Exit!")
+        Console.writeMessage("Blocker Thread Exit!")
     }
 }

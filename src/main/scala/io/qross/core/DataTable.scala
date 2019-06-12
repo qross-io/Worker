@@ -2,7 +2,7 @@ package io.qross.core
 
 import io.qross.jdbc.DataType.DataType
 import io.qross.jdbc.{DataSource, DataType}
-import io.qross.ext.Output._
+import io.qross.ext.Console
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -615,21 +615,21 @@ case class DataTable(private val items: DataRow*) {
     }
     
     def show(limit: Int = 20): Unit = {
-        writeLine("------------------------------------------------------------------------")
-        writeLine(rows.size, " ROWS")
-        writeLine("------------------------------------------------------------------------")
-        writeLine(getLabelNames.mkString(", "))
+        Console.writeLine("------------------------------------------------------------------------")
+        Console.writeLine(rows.size, " ROWS")
+        Console.writeLine("------------------------------------------------------------------------")
+        Console.writeLine(getLabelNames.mkString(", "))
         breakable {
             var i = 0
             for (row <- rows) {
-                writeLine(row.join(", "))
+                Console.writeLine(row.join(", "))
                 i += 1
                 if (i >= limit) {
                     break
                 }
             }
         }
-        writeLine("------------------------------------------------------------------------")
+        Console.writeLine("------------------------------------------------------------------------")
     }
     
     override def toString: String = {

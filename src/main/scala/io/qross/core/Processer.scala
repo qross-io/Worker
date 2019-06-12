@@ -81,6 +81,6 @@ class Processer(source: DataSource, sentence: String, index: Int, tanks: Int = 3
 
         Processer.CUBEs(index).wipe()
 
-        Output.writeMessage("Processer Thread Exit!")
+        Console.writeMessage("Processer Thread Exit!")
     }
 }

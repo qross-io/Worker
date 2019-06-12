@@ -1,12 +1,12 @@
 package io.qross.net
 
 import io.qross.core.DataRow
-import io.qross.fs.OpenResourceFile
+import io.qross.fs.ResourceFile
 import io.qross.fs.FilePath._
 import io.qross.jdbc.{DataSource, JDBC}
 import io.qross.setting.Global
 import io.qross.time.Timer
-import io.qross.ext.Output
+import io.qross.ext.Console
 import javax.activation.{DataHandler, FileDataSource}
 import javax.mail.internet._
 import javax.mail.{Message, SendFailedException, Session, Transport}
@@ -41,20 +41,20 @@ class Email(private var title: String) {
     private var toReceivers = new mutable.HashMap[String, String]()
     private var ccReceivers = new mutable.HashMap[String, String]()
     private var bccReceivers = new mutable.HashMap[String, String]()
-    private var content: String = if (Global.EMAIL_DEFAULT_TEMPLATE != "") OpenResourceFile(Global.EMAIL_DEFAULT_TEMPLATE).getContent() else ""
+    private var content: String = if (Global.EMAIL_DEFAULT_TEMPLATE != "") ResourceFile.open(Global.EMAIL_DEFAULT_TEMPLATE).getContent() else ""
 
     def fromTemplate(path: String): Email = {
-        this.content = OpenResourceFile(path).getContent()
+        this.content = ResourceFile.open(path).getContent()
         this
     }
 
     def withDefaultSignature(): Email = {
-        this.content = this.content.replace("${signature}", OpenResourceFile(Global.EMAIL_DEFAULT_SIGNATURE).getContent())
+        this.content = this.content.replace("${signature}", ResourceFile.open(Global.EMAIL_DEFAULT_SIGNATURE).getContent())
         this
     }
 
     def withSignature(path: String): Email = {
-        this.content = this.content.replace("${signature}", OpenResourceFile(path).getContent())
+        this.content = this.content.replace("${signature}", ResourceFile.open(path).getContent())
         this
     }
     
@@ -224,7 +224,7 @@ class Email(private var title: String) {
             case se: SendFailedException =>
                     se.getInvalidAddresses
                         .foreach(address => {
-                        Output.writeException(s"Invalid email address $address")
+                        Console.writeException(s"Invalid email address $address")
                     })
                     transport.sendMessage(message, se.getValidUnsentAddresses)
             case e: Exception => e.printStackTrace()

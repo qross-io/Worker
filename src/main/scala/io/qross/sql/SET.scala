@@ -1,8 +1,8 @@
-package io.qross.psql
+package io.qross.sql
 
 import io.qross.core.DataHub
 import io.qross.ext.TypeExt._
-import io.qross.psql.Patterns._
+import io.qross.sql.Patterns._
 import io.qross.ext.PlaceHolder._
 
 class SET(var variable: String, expression: String) {

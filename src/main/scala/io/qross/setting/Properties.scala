@@ -45,6 +45,10 @@ object Properties {
         }
     }
 
+    def set(key: String, value: String): Unit = {
+        props.setProperty(key, value)
+    }
+
     def loadLocalFile(path: String): Unit = {
         val file = new File(path)
         if (file.exists()) {

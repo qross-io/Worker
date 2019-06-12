@@ -88,6 +88,7 @@ object TypeExt {
             queries.toMap
         }
 
+        //执行javascript
         def eval(): DataCell = {
             val jse: ScriptEngine = new ScriptEngineManager().getEngineByName("JavaScript")
             try {
@@ -108,6 +109,7 @@ object TypeExt {
             //    interpreter.close()
         }
 
+        //执行javascript并返回值, 最后一条语句需以return结尾
         def call(): DataCell = {
             val jse: ScriptEngine = new ScriptEngineManager().getEngineByName("JavaScript")
             try {

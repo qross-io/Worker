@@ -363,7 +363,7 @@ class DataSource (val connectionName: String = DataSource.DEFAULT, var databaseN
                     //} catch {
                     //    case e: SQLException => e.printStackTrace()
                             //if (e.getClass.getSimpleName == "CommunicationsException") {
-                            //    Output.writeMessage("MATCHED!")
+                            //    Console.writeMessage("MATCHED!")
                             //}
                     //}
                     retry += 1

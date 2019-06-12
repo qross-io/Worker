@@ -1,4 +1,4 @@
-package io.qross.psql
+package io.qross.sql
 
 class SQLParseException(val s: String) extends RuntimeException(s) {
 

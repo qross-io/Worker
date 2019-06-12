@@ -5,7 +5,7 @@ import java.util.regex.{Matcher, Pattern}
 import io.qross.core.{DataCell, DataRow}
 import io.qross.ext.TypeExt._
 import io.qross.jdbc.DataType
-import io.qross.psql.{Function, GlobalVariable, PSQL, SQLExecuteException}
+import io.qross.sql.{Function, GlobalVariable, PSQL, SQLExecuteException}
 
 import scala.collection.mutable
 import scala.util.control.Breaks._
@@ -34,7 +34,7 @@ ${express}
 
 object PlaceHolder {
     //0 whole match 1 whole place holder 2 prefix 3 variable name
-    val ARGUMENT: String = """(^|[^#&])(([#&])\{([a-zA-Z0-9_]+)\})"""  //入参 #{name} 或 &{name}
+    val ARGUMENT: String = """(#|&)\{([a-zA-Z0-9_]+)\}"""  //入参 #{name} 或 &{name}
     val PARAMETER: String = """(^|[^#&])(([#&])\(?([a-zA-Z0-9_]+)\)?)""" //DataHub传递参数, #name 或 #{name} 或 &name 或 &(name)
     val USER_VARIABLE: String = """(^|[^\$])(\$\(?([a-zA-Z0-9_]+)\)?)""" //#用户变量
     val GLOBAL_VARIABLE: String = """(^|[^@])(@\(?([a-zA-Z0-9_]+)\)?)""" //#全局变量
@@ -45,6 +45,10 @@ object PlaceHolder {
     val JS_STATEMENT: String = """\~\{\{(.+?)}}"""// js语句块
 
     implicit class Sentence(var sentence: String) {
+
+        def hasArguments: Boolean = {
+            ARGUMENT.r.test(sentence)
+        }
 
         def hasParameters: Boolean = {
             PARAMETER.r.test(sentence)
@@ -77,6 +81,24 @@ object PlaceHolder {
         //匹配的几个问题
         //先替换长字符匹配，再替换短字符匹配，如 #user 和 #username, 应先替换 #username，再替换 #user
         //原生特殊字符处理，如输出#，则使用两个重复的##
+
+        def replaceArguments(map: Map[String, String]): String = {
+            ARGUMENT
+                    .r
+                    .findAllMatchIn(sentence)
+                    .foreach(m => {
+                        val whole = m.group(0)
+                        val fieldName = m.group(4)
+                        //val symbol = m.group(3)
+                        val prefix = m.group(1)
+
+                        if (map.contains(fieldName)) {
+                            sentence = sentence.replace(whole, prefix + map(fieldName))
+                        }
+                    })
+
+            sentence
+        }
 
         //适用于DataHub pass和put的方法, 对应DataSource的 tableSelect和tableUpdate
         def replaceParameters(row: DataRow): String = {
@@ -215,6 +237,7 @@ object PlaceHolder {
             sentence = sentence.replace("&&", "&")
             sentence
         }
+
         def `$$->$`: String = {
             sentence = sentence.replace("$$", "$")
             sentence

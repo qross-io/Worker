@@ -2,8 +2,7 @@ package io.qross.core
 
 import java.io.File
 
-import io.qross.ext.Output
-import io.qross.ext.Output._
+import io.qross.ext.Console
 import io.qross.ext.PlaceHolder._
 import io.qross.ext.TypeExt._
 import io.qross.fs._
@@ -11,13 +10,14 @@ import io.qross.fs.FilePath._
 import io.qross.jdbc.{DataSource, JDBC}
 import io.qross.jdbc.DataType.DataType
 import io.qross.net.{Email, HttpClient, Json}
-import io.qross.psql.GlobalVariable
+import io.qross.sql.{GlobalVariable, OUT, PSQL}
 import io.qross.setting.Global
 import io.qross.thread.Parallel
 import io.qross.time.{DateTime, Timer}
 
 import scala.collection.mutable
 import scala.collection.parallel.mutable.ParArray
+import scala.io.Source
 
 
 class DataHub () {
@@ -53,6 +53,8 @@ class DataHub () {
     private var JSON: Json = _
     private var READER: FileReader = _
     private val ZIP = new Zip()
+
+    private var PSQL: PSQL = _
 
     //全局变量-最后一次get方法的结果集数量
     private var $COUNT: Int = 0
@@ -624,7 +626,7 @@ class DataHub () {
     
         if (DEBUG) {
             table.show(10)
-            writeMessage(createSQL)
+            Console.writeMessage(createSQL)
         }
 
         if (table.nonEmpty) {
@@ -723,7 +725,7 @@ class DataHub () {
 
         if (DEBUG) {
             table.show(10)
-            writeMessage(createSQL)
+            Console.writeMessage(createSQL)
         }
 
         if (table.nonEmpty) {
@@ -1074,13 +1076,13 @@ class DataHub () {
                         $TOTAL += table.count()
                         $COUNT = table.count()
                         handler(table)
-                        Output.writeMessage(s"$pageSize SAVED")
+                        Console.writeMessage(s"$pageSize SAVED")
                     }
                     Timer.sleep(0.1F)
                 }
                 parallel.waitAll()
                 Pager.CUBE.reset()
-                Output.writeMessage("Exit All Page")
+                Console.writeMessage("Exit All Page")
 
                 /* origin code for single thread
                 var page = 0
@@ -1160,13 +1162,13 @@ class DataHub () {
                     $TOTAL += table.count()
                     $COUNT = table.count()
                     handler(table)
-                    Output.writeMessage(s"${config._4} SAVED")
+                    Console.writeMessage(s"${config._4} SAVED")
                 }
                 Timer.sleep(0.1F)
             }
-            Output.writeMessage("Exit Block While")
+            Console.writeMessage("Exit Block While")
             parallel.waitAll()
-            Output.writeMessage("Exit All Block")
+            Console.writeMessage("Exit All Block")
         }
     }
     
@@ -1474,7 +1476,50 @@ class DataHub () {
         TABLE.copy(JSON.findDataTable(jsonPath))
         this
     }
-    
+
+    //---------- PSQL ----------
+
+    def openSQL(SQL: String): DataHub = {
+        PSQL = new PSQL(SQL, this)
+        this
+    }
+
+    def openFileSQL(filePath: String): DataHub = {
+        PSQL = new PSQL(Source.fromFile(filePath.locate()).mkString, this)
+        this
+    }
+
+    def openResourceSQL(resourcePath: String): DataHub = {
+        PSQL = new PSQL(ResourceFile.open(resourcePath).getContent(), this)
+        this
+    }
+
+    def withArgs(args: Any): DataHub = {
+        PSQL.$with(args)
+        this
+    }
+
+    def setVariable(name: String, value: Any): DataHub = {
+        PSQL.set(name, value)
+        this
+    }
+
+    def run(): PSQL = {
+        PSQL.run()
+    }
+
+    def run(SQL: String): PSQL = {
+        new PSQL(SQL, this).run()
+    }
+
+    def runFileSQL(filePath: String, outputType: String = OUT.LIST): PSQL = {
+        new PSQL(Source.fromFile(filePath.locate()).mkString, this).run()
+    }
+
+    def runResourceSQL(resourcePath: String, outputType: String = OUT.LIST): PSQL = {
+        new PSQL(ResourceFile.open(resourcePath).getContent(), this).run()
+    }
+
     // ---------- dataSource ----------
 
     def executeMapList(SQL: String, values: Any*): List[Map[String, Any]] = CURRENT.executeMapList(SQL, values: _*)

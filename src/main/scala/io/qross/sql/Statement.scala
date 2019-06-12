@@ -1,7 +1,7 @@
-package io.qross.psql
+package io.qross.sql
 
 import io.qross.core.{DataCell, DataRow}
-import io.qross.ext.Output
+import io.qross.ext.Console
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -27,7 +27,7 @@ class Statement(val caption: String, val sentence: String = "", val instance: An
         for (i <- 0 until level) {
             System.out.print("\t")
         }
-        Output.writeLine(this.sentence)
+        Console.writeLine(this.sentence)
         for (statement <- this.statements) {
             statement.show(level + 1)
         }

@@ -1,7 +1,7 @@
 package io.qross.jdbc
 
 import io.qross.setting.{Global, Properties}
-import io.qross.ext.Output
+import io.qross.ext.Console
 import io.qross.ext.TypeExt._
 
 import scala.collection.{immutable, mutable}
@@ -51,7 +51,7 @@ object JDBC {
 
         if (!QrossExists) {
             if (!Properties.contains(QROSS) && !Properties.contains(QROSS + ".url")) {
-                Output.writeException(s"Can't find properties key $QROSS, it must be set in .properties files.")
+                Console.writeException(s"Can't find properties key $QROSS, it must be set in .properties files.")
                 System.exit(1)
             }
             QrossExists = true
@@ -59,7 +59,7 @@ object JDBC {
 
         if (QrossExists && !QrossConnectable) {
             if (!DataSource.testConnection()) {
-                Output.writeException(s"Can't open database, please check your connection string of $QROSS.")
+                Console.writeException(s"Can't open database, please check your connection string of $QROSS.")
                 System.exit(1)
             }
             else {
@@ -73,7 +73,7 @@ object JDBC {
                 }
 
                 if (version == "") {
-                    Output.writeException("Can't find Qross system, please create your Qross system use Qross Master.")
+                    Console.writeException("Can't find Qross system, please create your Qross system use Qross Master.")
                     System.exit(1)
                 }
             }

@@ -1,11 +1,11 @@
-package io.qross.psql
+package io.qross.sql
 
 import java.util.regex.Matcher
 
 import io.qross.core.DataHub
-import io.qross.ext.Output
+import io.qross.ext.Console
 import io.qross.ext.PlaceHolder._
-import io.qross.psql.Patterns._
+import io.qross.sql.Patterns._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -88,7 +88,7 @@ class ConditionGroup(expression: String) {
 
             condition.eval(field, value)
 
-            Output.writeDotLine(" ", condition.field, condition.operator, condition.value, " => ", condition.result)
+            Console.writeDotLine(" ", condition.field, condition.operator, condition.value, " => ", condition.result)
         }
 
         val result = conditions(conditions.size - 1).result

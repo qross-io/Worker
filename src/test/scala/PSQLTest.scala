@@ -4,10 +4,11 @@ import java.util.regex.Pattern
 import io.qross.core.DataHub
 import io.qross.ext.PlaceHolder
 import io.qross.ext.TypeExt._
-import io.qross.jdbc.DataSource
-import io.qross.psql.PSQL._
-import io.qross.psql.Patterns
-import io.qross.psql.Patterns._
+import io.qross.jdbc.{ABC, DataSource}
+import io.qross.ext.Console
+import io.qross.sql.PSQL
+import io.qross.sql.Patterns
+import io.qross.sql.Patterns._
 import io.qross.setting.Global
 import org.apache.hadoop.hive.metastore.hbase.HbaseMetastoreProto.Database
 
@@ -45,8 +46,7 @@ object PSQLTest {
 //        println(Class.forName("io.qross.setting.Global").getDeclaredMethod("CORES").invoke(null))
 //        Global.getClass.getDeclaredMethod("CORES").invoke(null)
 
-
-        //System.exit(0)
+       //System.exit(0)
 
         val dh = new DataHub()
 
@@ -62,6 +62,7 @@ object PSQLTest {
 //            .get("SELECT var_name, var_value FROM ars")
 //        .saveAsDefault()
 //            .put("INSERT INTO tc (status, info) VALUES ('#var_name', &var_value)")
+
 
         dh.run(
             """

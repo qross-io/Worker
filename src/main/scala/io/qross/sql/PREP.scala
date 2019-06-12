@@ -1,4 +1,4 @@
-package io.qross.psql
+package io.qross.sql
 
 class PREP(val nonQuerySQL: String) {
 

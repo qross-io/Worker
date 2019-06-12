@@ -106,7 +106,7 @@ case class FileReader(filePath: String) {
         cube.reset()
 
         parallel.waitAll()
-        Output.writeMessage("Finish Reader.")
+        Console.writeMessage("Finish Reader.")
 
         this
     }

@@ -10,7 +10,7 @@ sourceCompatibility = 1.8
 archivesBaseName = "qross-worker"
 jar {
     manifest {
-        attributes 'Main-Class': 'io.qross.worker.Test'
+        attributes 'Main-Class': 'io.qross.worker.Worker'
     }
 }
 

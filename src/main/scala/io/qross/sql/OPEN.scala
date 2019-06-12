@@ -1,4 +1,4 @@
-package io.qross.psql
+package io.qross.sql
 
 import io.qross.ext.TypeExt._
 import io.qross.setting.Properties

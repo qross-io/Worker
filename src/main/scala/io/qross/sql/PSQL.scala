@@ -1,37 +1,24 @@
-package io.qross.psql
+package io.qross.sql
 
 import java.util.regex.Matcher
 
 import io.qross.core.{DataCell, DataHub}
-import io.qross.ext.Output
+import io.qross.ext.Console
 import io.qross.ext.PlaceHolder._
 import io.qross.ext.TypeExt._
-import io.qross.jdbc.{DataSource, JDBC}
-import io.qross.psql.Patterns._
+import io.qross.sql.Patterns._
 
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Try
 import scala.util.control.Breaks._
-
-object PSQL {
-
-    implicit class DataHubForPSQL(dh: DataHub) {
-
-        def run(SQL: String, outputType: String = OUT.LIST): Any = {
-            new PSQL(SQL, dh)
-                    .run(outputType)
-        }
-    }
-}
+import scala.collection.JavaConverters._
 
 class PSQL(val originalSQL: String, val dh: DataHub) {
 
     var SQL: String = originalSQL
 
-    private var params = ""
     private var cacheName = ""
-    private var cacheEnabled = false
 
     private val root: Statement = new Statement("ROOT", SQL)
     private var m: Matcher = _
@@ -610,12 +597,12 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
         val $print = statement.instance.asInstanceOf[PRINT]
         val message = $print.message.$eval(this)
         $print.messageType match {
-            case "WARN" => Output.writeWarning(message)
-            case "ERROR" => Output.writeException(message)
-            case "DEBUG" => Output.writeDebugging(message)
-            case "INFO" => Output.writeMessage(message)
-            case "NONE" => Output.writeLine(message)
-            case seal: String => Output.writeLineWithSeal(seal, message)
+            case "WARN" => Console.writeWarning(message)
+            case "ERROR" => Console.writeException(message)
+            case "DEBUG" => Console.writeDebugging(message)
+            case "INFO" => Console.writeMessage(message)
+            case "NONE" => Console.writeLine(message)
+            case seal: String => Console.writeLineWithSeal(seal, message)
             case _ =>
         }
     }
@@ -728,93 +715,51 @@ class PSQL(val originalSQL: String, val dh: DataHub) {
     }
 
     //传递参数和数据, Spring Boot的httpRequest参数
-    def $with(params: Map[String, Array[String]], defaultValue: String = ""): PSQL = {
-
-        for (paramName <- params.keySet) {
-            val paramValue = params(paramName)(0)
-            //            try {
-            //                paramValue = URLDecoder.decode(paramValue, "utf-8");
-            //            } catch (UnsupportedEncodingException e) {
-            //                e.printStackTrace();
-            //            }
-            if (this.SQL.contains("#{" + paramName + "}")) {
-                if (this.params != "") {
-                    this.params += "&"
-                }
-                this.params += paramName + "=" + paramValue
-                this.SQL = this.SQL.replace("#{" + paramName + "}", paramValue)
-            }
-        }
-        if (this.SQL.contains("#{")) {
-            if (defaultValue.nonEmpty) {
-                for ((paramName, paramValue) <- defaultValue.toHashMap()) {
-                    this.SQL = this.SQL.replace("#{" + paramName + "}", paramValue)
-                }
-            }
-        }
-        this
-    }
-
-    //传递参数和数据
-    def $with(params: Map[String, String]): PSQL = {
-
-        for ((paramName, paramValue) <- params) {
-            if (this.SQL.contains("#{" + paramName + "}")) {
-                if (this.params != "") {
-                    this.params += "&"
-                }
-                this.params += paramName + "=" + paramValue
-                this.SQL = this.SQL.replace("#{" + paramName + "}", paramValue)
-            }
-        }
-        this
-    }
-
-    def cache(name: String, cacheEnabled: Boolean): PSQL = {
-        this.cacheName = name
-        this.cacheEnabled = cacheEnabled
+    def $with(args: Any): PSQL = {
+        this.SQL = this.SQL.replaceArguments(args match {
+            case queries : java.util.Map[String, Array[String]] => queries.asScala.map(kv => (kv._1, kv._2(0))).toMap
+            case args: Map[String, String] => args
+            case queryString: String => queryString.toHashMap()
+            case _ => Map[String, String]()
+        })
         this
     }
 
     //设置单个变量的值
-    def set(globalVariableName: String, value: String): PSQL = {
+    def set(globalVariableName: String, value: Any): PSQL = {
         root.setVariable(globalVariableName, value)
         this
     }
 
-    def run(resultType: String = OUT.LIST): Option[Any] = {
-        if (this.cacheEnabled && ResultCache.contains(this.cacheName, this.params)) {
-            //Output.writeLine("# FROM CACHE # " + this.SQL)
-            ResultCache.get(this.cacheName, this.params)
-        }
-        else {
-            this.parseAll()
-            //Output.writeLine("# FROM DATASOURCE # " + this.SQL)
-            EXECUTING.push(root)
-            this.execute(root.statements)
-            dh.clear()
+    def run(): PSQL = {
+        this.parseAll()
+        //Console.writeLine("# FROM DATASOURCE # " + this.SQL)
+        EXECUTING.push(root)
+        this.execute(root.statements)
+        dh.clear()
 
-            if (resultType.toLowerCase() == OUT.ALL) {
-                if (cacheEnabled) {
-                    ResultCache.set(cacheName, params, ALL)
-                }
-                Some(ALL)
-            }
-            else {
-                if (cacheEnabled) {
-                    ResultCache.set(cacheName, params, ALL(resultType.toLowerCase()))
-                }
-                ALL.get(resultType.toLowerCase())
-            }
+        this
+    }
+
+    def $return(resultType: String = OUT.LIST): Option[Any] = {
+
+        dh.close()
+
+        val outType = resultType.toLowerCase()
+        if (outType == OUT.ALL) {
+            Some(ALL)
+        }
+        else  {
+            ALL.get(outType)
         }
     }
 
     def show(): Unit = {
         val sentences = SQL.split(";")
         for (i <- sentences.indices) {
-            Output.writeLine(i, ": ", sentences(i))
+            Console.writeLine(i, ": ", sentences(i))
         }
-        Output.writeLine("------------------------------------------------------------")
+        Console.writeLine("------------------------------------------------------------")
         this.root.show(0)
     }
 }

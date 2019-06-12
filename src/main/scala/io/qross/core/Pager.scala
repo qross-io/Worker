@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import io.qross.jdbc.DataSource
 import io.qross.thread.Cube
 import io.qross.time.Timer
-import io.qross.ext.Output
+import io.qross.ext.Console
 
 object Pager {
     val CUBE = new Cube()
@@ -44,6 +44,6 @@ class Pager(source: DataSource,
 
         //线程关闭时减1
         Pager.CUBE.wipe()
-        Output.writeMessage("Pager Thread Exit!")
+        Console.writeMessage("Pager Thread Exit!")
     }
 }

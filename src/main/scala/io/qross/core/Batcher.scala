@@ -42,6 +42,6 @@ class Batcher(source: DataSource, sentence: String) extends Thread {
 
         ds.close()
 
-        Output.writeMessage("Batcher Thread Exit!")
+        Console.writeMessage("Batcher Thread Exit!")
     }
 }
