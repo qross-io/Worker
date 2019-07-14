@@ -9,7 +9,6 @@ import io.qross.jdbc.{DataSource, JDBC}
 import io.qross.setting.Properties
 import io.qross.sql.SQLExecuteException
 
-import scala.collection.mutable
 import scala.io.Source
 
 object Worker {
@@ -17,6 +16,8 @@ object Worker {
     def main(args: Array[String]): Unit = {
 
         var SQL: String = "" //待执行的PSQL语句
+        var userId: Int = 0
+        var userName: String = ""
 
         for (i <- args.indices) {
             if (args(i).startsWith("--") && args.length > i + 1) {
@@ -26,8 +27,9 @@ object Worker {
                     case "--sql" => //执行SQL语句, 不支持在语句中使用双引号，双引号用~u0034代替
                         SQL = args(i+1).replace("~u0034", "\"")
                     case "--resources" =>
-                        SQL = ResourceFile.open(args(i+1)).getContent()
+                        SQL = ResourceFile.open(args(i+1)).content
                     case "--vars" => //传递参数
+                        //在传递给worker之前必须事先都计算好
                         SQL = SQL.replaceArguments(args(i+1).toHashMap())
                     case "--properties" => //加载properties文件
                         Properties.loadLocalFile(args(i+1).locate())
@@ -37,12 +39,21 @@ object Worker {
                         })
                     case "--note" => //执行Note
                         if (JDBC.hasQrossSystem) {
-                            SQL = DataSource.querySingleValue("SELECT psql FROM qross_notes WHERE id=?", args(i)).getOrElse("")
+                            SQL = DataSource.querySingleValue("SELECT psql FROM qross_notes WHERE id=?", args(i+1)).getOrElse("").asInstanceOf[String]
                         }
-                    case "--event" => //执行Keeper事件
+                    case "--event" => //执行Keeper事件, 可能用不上
                         if (JDBC.hasQrossSystem) {
-                            SQL = DataSource.querySingleValue("SELECT event_value FROM qross_jobs_events WHERE id=?", args(i)).getOrElse("")
+                            SQL = DataSource.querySingleValue("SELECT event_value FROM qross_jobs_events WHERE id=?", args(i+1)).getOrElse("").asInstanceOf[String]
                         }
+                    case "--login" =>
+                        args(i+1).toHashMap().foreach(item => {
+                            if (Set[String]("id", "userid", "uid", "user").contains(item._1.toLowerCase)) {
+                                userId = item._2.toInt
+                            }
+                            else if (Set[String]("name", "username").contains(item._1.toLowerCase)) {
+                                userName = item._2
+                            }
+                        })
                     case _ =>
                 }
             }
@@ -51,7 +62,8 @@ object Worker {
         if (SQL != "") {
             val dh = new DataHub()
 
-            dh.run(SQL)
+            dh.signIn(userId, userName)
+                    .run(SQL)
 
             dh.close()
         }
