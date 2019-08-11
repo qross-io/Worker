@@ -1,9 +1,10 @@
 package io.qross.worker
 
 import io.qross.core.DataHub
-import io.qross.ext.PlaceHolder._
+import io.qross.sql.Solver._
 import io.qross.ext.TypeExt._
 import io.qross.fs.FilePath._
+import io.qross.sql.PSQL._
 import io.qross.fs.ResourceFile
 import io.qross.jdbc.{DataSource, JDBC}
 import io.qross.setting.Properties
@@ -16,6 +17,7 @@ object Worker {
     def main(args: Array[String]): Unit = {
 
         var SQL: String = "" //待执行的PSQL语句
+        var vars: String = ""
         var userId: Int = 0
         var userName: String = ""
 
@@ -30,7 +32,7 @@ object Worker {
                         SQL = ResourceFile.open(args(i+1)).content
                     case "--vars" => //传递参数
                         //在传递给worker之前必须事先都计算好
-                        SQL = SQL.replaceArguments(args(i+1).toHashMap())
+                        vars = args(i+1)
                     case "--properties" => //加载properties文件
                         Properties.loadLocalFile(args(i+1).locate())
                     case "--jdbc" => //加载数据源
@@ -39,11 +41,11 @@ object Worker {
                         })
                     case "--note" => //执行Note
                         if (JDBC.hasQrossSystem) {
-                            SQL = DataSource.querySingleValue("SELECT psql FROM qross_notes WHERE id=?", args(i+1)).getOrElse("").asInstanceOf[String]
+                            SQL = DataSource.QROSS.querySingleValue("SELECT psql FROM qross_notes WHERE id=?", args(i+1)).asText
                         }
-                    case "--event" => //执行Keeper事件, 可能用不上
+                    case "--task" => //执行Keeper任务
                         if (JDBC.hasQrossSystem) {
-                            SQL = DataSource.querySingleValue("SELECT event_value FROM qross_jobs_events WHERE id=?", args(i+1)).getOrElse("").asInstanceOf[String]
+                            SQL = DataSource.QROSS.querySingleValue("SELECT command_text FROM qross_tasks_dags WHERE id=?", args(i+1)).asText
                         }
                     case "--login" =>
                         args(i+1).toHashMap().foreach(item => {
@@ -60,6 +62,11 @@ object Worker {
         }
 
         if (SQL != "") {
+
+            if (vars != "") {
+                SQL = SQL.replaceArguments(vars.toHashMap())
+            }
+
             val dh = new DataHub()
 
             dh.signIn(userId, userName)
