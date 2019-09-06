@@ -1,15 +1,14 @@
 package io.qross.worker
 
+import io.qross.core.Authentication._
 import io.qross.core.DataHub
-import io.qross.pql.Solver._
 import io.qross.ext.TypeExt._
 import io.qross.fs.FilePath._
 import io.qross.fs.ResourceFile
 import io.qross.jdbc.{DataSource, JDBC}
-import io.qross.setting.Properties
-import io.qross.pql.SQLExecuteException
-import io.qross.core.Authentication._
 import io.qross.pql.PQL._
+import io.qross.pql.SQLExecuteException
+import io.qross.setting.Properties
 
 import scala.io.Source
 
@@ -17,7 +16,7 @@ object Worker {
 
     def main(args: Array[String]): Unit = {
 
-        var SQL: String = "" //待执行的PSQL语句
+        var SQL: String = "" //待执行的PQL语句
         var vars: String = ""
         var userId: Int = 0
         var userName: String = ""
@@ -42,7 +41,9 @@ object Worker {
                         })
                     case "--note" => //执行Note
                         if (JDBC.hasQrossSystem) {
-                            SQL = DataSource.QROSS.querySingleValue("SELECT pql FROM qross_notes WHERE id=?", args(i+1)).asText
+                            val row = DataSource.QROSS.queryDataRow("SELECT pql, args FROM qross_notes WHERE id=?", args(i+1))
+                            SQL = row.getString("pql")
+                            vars = row.getString("args")
                         }
                     case "--task" => //执行Keeper任务
                         if (JDBC.hasQrossSystem) {
