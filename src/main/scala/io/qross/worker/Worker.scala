@@ -1,14 +1,15 @@
 package io.qross.worker
 
 import io.qross.core.DataHub
-import io.qross.sql.Solver._
+import io.qross.pql.Solver._
 import io.qross.ext.TypeExt._
 import io.qross.fs.FilePath._
-import io.qross.sql.PSQL._
 import io.qross.fs.ResourceFile
 import io.qross.jdbc.{DataSource, JDBC}
 import io.qross.setting.Properties
-import io.qross.sql.SQLExecuteException
+import io.qross.pql.SQLExecuteException
+import io.qross.core.Authentication._
+import io.qross.pql.PQL._
 
 import scala.io.Source
 
@@ -41,7 +42,7 @@ object Worker {
                         })
                     case "--note" => //执行Note
                         if (JDBC.hasQrossSystem) {
-                            SQL = DataSource.QROSS.querySingleValue("SELECT psql FROM qross_notes WHERE id=?", args(i+1)).asText
+                            SQL = DataSource.QROSS.querySingleValue("SELECT pql FROM qross_notes WHERE id=?", args(i+1)).asText
                         }
                     case "--task" => //执行Keeper任务
                         if (JDBC.hasQrossSystem) {
@@ -62,20 +63,18 @@ object Worker {
         }
 
         if (SQL != "") {
-
-            if (vars != "") {
-                SQL = SQL.replaceArguments(vars.toHashMap())
-            }
-
             val dh = new DataHub()
 
+            //按PQL计算, 支持各种PQL嵌入式表达式, 但不保留引号
+
             dh.signIn(userId, userName)
+                .setArgs(vars)
                     .run(SQL)
 
             dh.close()
         }
         else {
-            throw new SQLExecuteException("No PSQL to execute.")
+            throw new SQLExecuteException("No PQL sentences to execute.")
         }
     }
 }
