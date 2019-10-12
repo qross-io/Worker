@@ -43,7 +43,7 @@ repositories {
 dependencies {
 	compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.4'
 
-    compile (group: 'io.qross', name: 'qross-pql', version: '0.6.0-33-SNAPSHOT')
+    compile (group: 'io.qross', name: 'qross-pql', version: '0.6.0-105-SNAPSHOT')
 
     //compile (group: 'io.qross', name: 'qross-kits-cluster', version: '0.5.9-SNAPSHOT')
 }

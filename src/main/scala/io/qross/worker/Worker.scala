@@ -4,13 +4,11 @@ import io.qross.core.Authentication._
 import io.qross.core.DataHub
 import io.qross.ext.TypeExt._
 import io.qross.fs.FilePath._
-import io.qross.fs.ResourceFile
+import io.qross.fs.{FileReader, ResourceFile}
 import io.qross.jdbc.{DataSource, JDBC}
 import io.qross.pql.PQL._
 import io.qross.pql.SQLExecuteException
 import io.qross.setting.Properties
-
-import scala.io.Source
 
 object Worker {
 
@@ -25,7 +23,8 @@ object Worker {
             if (args(i).startsWith("--") && args.length > i + 1) {
                 args(i).toLowerCase() match {
                     case "--file" => //从文件中加载SQL语句
-                        SQL = Source.fromFile(args(i+1).locate()).mkString
+                        //SQL = Source.fromFile(args(i+1).locate(), "UTF-8").mkString
+                        SQL = new FileReader(args(i+1).locate()).readToEnd(!_.startsWith("--"))
                     case "--sql" => //执行SQL语句, 不支持在语句中使用双引号，双引号用~u0034代替
                         SQL = args(i+1).replace("~u0034", "\"")
                     case "--resources" =>
@@ -36,7 +35,7 @@ object Worker {
                     case "--properties" => //加载properties文件
                         Properties.loadLocalFile(args(i+1).locate())
                     case "--jdbc" => //加载数据源
-                        args(i+1).toHashMap().foreach(item => {
+                        args(i+1).$split().foreach(item => {
                             Properties.set(item._1, item._2)
                         })
                     case "--note" => //执行Note
@@ -50,7 +49,7 @@ object Worker {
                             SQL = DataSource.QROSS.querySingleValue("SELECT command_text FROM qross_tasks_dags WHERE id=?", args(i+1)).asText
                         }
                     case "--login" =>
-                        args(i+1).toHashMap().foreach(item => {
+                        args(i+1).$split().foreach(item => {
                             if (Set[String]("id", "userid", "uid", "user").contains(item._1.toLowerCase)) {
                                 userId = item._2.toInt
                             }
@@ -67,10 +66,10 @@ object Worker {
             val dh = new DataHub()
 
             //按PQL计算, 支持各种PQL嵌入式表达式, 但不保留引号
-
             dh.signIn(userId, userName)
+                .openPQL(SQL)
                 .setArgs(vars)
-                    .run(SQL)
+                    .run()
 
             dh.close()
         }
