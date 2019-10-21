@@ -30,7 +30,7 @@ object Worker {
                         SQL = args(i+1).replace("~u0034", "\"")
                     case "--resources" =>
                         SQL = ResourceFile.open(args(i+1)).content
-                    case "--vars" => //传递参数
+                    case "--vars" | "--args" => //传递参数
                         //在传递给worker之前必须事先都计算好
                         vars = args(i+1)
                     case "--properties" => //加载properties文件
@@ -47,7 +47,9 @@ object Worker {
                         }
                     case "--task" => //执行Keeper任务
                         if (JDBC.hasQrossSystem) {
-                            SQL = DataSource.QROSS.querySingleValue("SELECT command_text FROM qross_tasks_dags WHERE id=?", args(i+1)).asText
+                            val row = DataSource.QROSS.queryDataRow("SELECT command_text, args FROM qross_tasks_dags WHERE id=?", args(i+1))
+                            SQL = row.getString("command_text")
+                            vars = row.getString("args")
                         }
                     case "--login" =>
                         args(i+1).$split().foreach(item => {
@@ -70,6 +72,7 @@ object Worker {
             dh.signIn(userId, userName)
                 .openPQL(SQL)
                 .setArgs(vars)
+                .setVariables(vars)
                     .run()
 
             dh.close()
