@@ -3,7 +3,7 @@ package io.qross.worker
 import io.qross.core.Authentication._
 import io.qross.core.DataHub
 import io.qross.ext.TypeExt._
-import io.qross.fs.FilePath._
+import io.qross.fs.Path._
 import io.qross.fs.{FileReader, ResourceFile}
 import io.qross.jdbc.{DataSource, JDBC}
 import io.qross.pql.PQL._
