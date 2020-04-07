@@ -1,13 +1,13 @@
 package io.qross.worker
 
-import io.qross.core.Authentication._
+import java.util
+
 import io.qross.core.DataHub
 import io.qross.ext.TypeExt._
 import io.qross.fs.Path._
 import io.qross.fs.{FileReader, ResourceFile}
 import io.qross.jdbc.{DataSource, JDBC}
-import io.qross.pql.PQL._
-import io.qross.pql.SQLExecuteException
+import io.qross.pql.{PQL, SQLExecuteException}
 import io.qross.setting.Properties
 
 
@@ -19,6 +19,8 @@ object Worker {
         var vars: String = ""
         var userId: Int = 0
         var userName: String = ""
+        var role: String = "worker"
+        val info: java.util.Map[String, Any] = new util.HashMap[String, Any]()
 
         for (i <- args.indices) {
             if (args(i).startsWith("--") && args.length > i + 1) {
@@ -59,6 +61,12 @@ object Worker {
                             else if (Set[String]("name", "username").contains(item._1.toLowerCase)) {
                                 userName = item._2
                             }
+                            else if (Set[String]("role", "rolename").contains(item._1.toLowerCase)) {
+                                role = item._2.toLowerCase()
+                            }
+                            else {
+                                info.put(item._1, item._2)
+                            }
                         })
                     case _ =>
                 }
@@ -66,16 +74,12 @@ object Worker {
         }
 
         if (SQL != "") {
-            val dh = new DataHub()
-
             //按PQL计算, 支持各种PQL嵌入式表达式, 但不保留引号
-            dh.signIn(userId, userName)
-                .openPQL(SQL)
-                .setArgs(vars)
-                .setVariables(vars)
-                    .run()
-
-            dh.close()
+            new PQL(SQL, DataHub.DEFAULT)
+                .signIn(userId, userName, role, info)
+                .set(vars)
+                .place(vars)
+                .run()
         }
         else {
             throw new SQLExecuteException("No PQL sentences to execute.")
