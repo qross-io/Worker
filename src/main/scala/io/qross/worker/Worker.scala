@@ -3,11 +3,12 @@ package io.qross.worker
 import java.util
 
 import io.qross.core.DataHub
+import io.qross.exception.SQLExecuteException
 import io.qross.ext.TypeExt._
 import io.qross.fs.Path._
 import io.qross.fs.{FileReader, ResourceFile}
 import io.qross.jdbc.{DataSource, JDBC}
-import io.qross.pql.{PQL, SQLExecuteException}
+import io.qross.pql.PQL
 import io.qross.setting.Properties
 
 
@@ -43,15 +44,13 @@ object Worker {
                         })
                     case "--note" => //执行Note
                         if (JDBC.hasQrossSystem) {
-                            val row = DataSource.QROSS.queryDataRow("SELECT pql, args FROM qross_notes WHERE id=?", args(i+1))
-                            SQL = row.getString("pql")
-                            vars = row.getString("args")
+                            val row = DataSource.QROSS.queryDataRow("SELECT note_code FROM qross_notes WHERE id=?", args(i+1))
+                            SQL = row.getString("note_code")
                         }
                     case "--task" => //执行Keeper任务
                         if (JDBC.hasQrossSystem) {
-                            val row = DataSource.QROSS.queryDataRow("SELECT command_text, args FROM qross_tasks_dags WHERE id=?", args(i+1))
+                            val row = DataSource.QROSS.queryDataRow("SELECT command_text FROM qross_tasks_dags WHERE id=?", args(i+1))
                             SQL = row.getString("command_text")
-                            vars = row.getString("args")
                         }
                     case "--login" =>
                         args(i+1).$split().foreach(item => {
