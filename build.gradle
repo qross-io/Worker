@@ -6,7 +6,7 @@ apply plugin: 'maven'
 apply plugin: "com.github.johnrengelman.shadow"
 
 group = 'io.qross'
-version = '0.6.2'
+version = '0.6.3'
 sourceCompatibility = 1.8
 
 archivesBaseName = "qross-worker"
@@ -33,25 +33,25 @@ repositories {
     jcenter()
     maven{
         credentials {
-            username 'zRjGml'
-            password 'aqGluc43el'
+            username 'PtbpNI'
+            password 'kwCz3C0wHx'
         }
-        //url "https://repo.rdc.aliyun.com/repository/75742-snapshot-Xkjz8l/"
-        url "https://repo.rdc.aliyun.com/repository/75742-release-biEMxs/"
+        url "https://packages.aliyun.com/maven/repository/2011186-snapshot-FSoDsK/"
+        //url "https://packages.aliyun.com/maven/repository/2011186-release-Aa5YmC/"
     }
 }
 
 dependencies {
 	compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.10'
 
-    compile (group: 'io.qross', name: 'qross-pql', version: '0.6.2-14-RELEASE')
+    compile (group: 'io.qross', name: 'pql', version: '0.6.3-68-SNAPSHOT')
     //compile (group: 'io.qross', name: 'qross-kits-cluster', version: '0.5.9-SNAPSHOT')
 }
 
 shadowJar {
     zip64 true
     //mergeServiceFiles('META-INF/spring.*')
-    archiveName = "qross-worker-0.6.2.jar"
+    archiveName = "qross-worker-0.6.3.jar"
 }
 
 artifacts {
