@@ -36,15 +36,15 @@ repositories {
             username 'PtbpNI'
             password 'kwCz3C0wHx'
         }
-        url "https://packages.aliyun.com/maven/repository/2011186-snapshot-FSoDsK/"
-        //url "https://packages.aliyun.com/maven/repository/2011186-release-Aa5YmC/"
+        //url "https://packages.aliyun.com/maven/repository/2011186-snapshot-FSoDsK/"
+        url "https://packages.aliyun.com/maven/repository/2011186-release-Aa5YmC/"
     }
 }
 
 dependencies {
 	compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.10'
 
-    compile (group: 'io.qross', name: 'pql', version: '0.6.3-68-SNAPSHOT')
+    compile (group: 'io.qross', name: 'pql', version: '0.6.3-2-RELEASE')
     //compile (group: 'io.qross', name: 'qross-kits-cluster', version: '0.5.9-SNAPSHOT')
 }
 
