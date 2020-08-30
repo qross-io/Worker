@@ -31,28 +31,20 @@ object Worker {
                         SQL = new FileReader(args(i+1).locate()).readToEnd(!_.startsWith("--"))
                     case "--sql" => //执行SQL语句, 不支持在语句中使用双引号，双引号用~u0034代替
                         SQL = args(i+1).replace("~u0034", "\"")
-                    case "--resources" =>
-                        SQL = ResourceFile.open(args(i+1)).content
                     case "--vars" | "--args" => //传递参数
-                        //在传递给worker之前必须事先都计算好
+                        //参数支持PQL所有嵌入规则
                         vars = args(i+1)
                     case "--properties" => //加载properties文件
                         Properties.loadLocalFile(args(i+1).locate())
-                    case "--jdbc" => //加载数据源
-                        args(i+1).$split().foreach(item => {
-                            Properties.set(item._1, item._2)
-                        })
                     case "--note" => //执行Note
                         if (JDBC.hasQrossSystem) {
-                            val row = DataSource.QROSS.queryDataRow("SELECT note_code FROM qross_notes WHERE id=?", args(i+1))
-                            SQL = row.getString("note_code")
+                            SQL = DataSource.QROSS.querySingleValue("SELECT note_code FROM qross_notes WHERE id=?", args(i+1)).asText("")
                         }
                     case "--task" => //执行Keeper任务
                         if (JDBC.hasQrossSystem) {
-                            val row = DataSource.QROSS.queryDataRow("SELECT command_text FROM qross_tasks_dags WHERE id=?", args(i+1))
-                            SQL = row.getString("command_text")
+                            SQL = DataSource.QROSS.querySingleValue("SELECT command_text FROM qross_tasks_dags WHERE id=?", args(i+1)).asText("")
                         }
-                    case "--login" =>
+                    case "--login" | "--signin" =>
                         args(i+1).$split().foreach(item => {
                             if (Set[String]("id", "userid", "uid", "user").contains(item._1.toLowerCase)) {
                                 userId = item._2.toInt
@@ -76,7 +68,6 @@ object Worker {
             //按PQL计算, 支持各种PQL嵌入式表达式, 但不保留引号
             new PQL(SQL, DataHub.DEFAULT)
                 .signIn(userId, userName, role, info)
-                .set(vars)
                 .place(vars)
                 .run()
         }
