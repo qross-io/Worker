@@ -5,18 +5,19 @@ import java.util
 import io.qross.core.DataHub
 import io.qross.exception.SQLExecuteException
 import io.qross.ext.TypeExt._
+import io.qross.fs.FileReader
 import io.qross.fs.Path._
-import io.qross.fs.{FileReader, ResourceFile}
 import io.qross.jdbc.{DataSource, JDBC}
 import io.qross.pql.PQL
 import io.qross.setting.Properties
-
 
 object Worker {
 
     def main(args: Array[String]): Unit = {
 
         var SQL: String = "" //待执行的PQL语句
+        var debug = false
+        var log = "text"
         var vars: String = ""
         var userId: Int = 0
         var userName: String = ""
@@ -28,7 +29,16 @@ object Worker {
                 args(i).toLowerCase() match {
                     case "--file" => //从文件中加载SQL语句
                         //SQL = Source.fromFile(args(i+1).locate(), "UTF-8").mkString
-                        SQL = new FileReader(args(i+1).locate()).readToEnd(!_.startsWith("--"))
+                        var file = args(i+1)
+                        if (file.contains("?")) {
+                            vars = file.takeAfter("?")
+                            file = file.takeBefore("?")
+                        }
+                        SQL = new FileReader(file.locate()).readToEnd(!_.startsWith("--"))
+                    case "--debug" =>
+                        debug = args(i+1).toBoolean(false)
+                    case "--log" => //log format
+                        log = args(i+1).toLowerCase()
                     case "--sql" => //执行SQL语句, 不支持在语句中使用双引号，双引号用~u0034代替
                         SQL = args(i+1).replace("~u0034", "\"")
                     case "--vars" | "--args" => //传递参数
@@ -66,7 +76,7 @@ object Worker {
 
         if (SQL != "") {
             //按PQL计算, 支持各种PQL嵌入式表达式, 但不保留引号
-            new PQL(SQL, DataHub.DEFAULT)
+            new PQL(SQL, DataHub.DEFAULT.debug(debug, log))
                 .signIn(userId, userName, role, info)
                 .place(vars)
                 .run()
