@@ -17,13 +17,16 @@ object Worker {
     def main(args: Array[String]): Unit = {
 
         var SQL: String = "" //待执行的PQL语句
+        var params: String = "" //待执行语句的参数
         var debug = false
         var log = "text"
-        var vars: String = ""
+        var vars: String = "" //本次传递的参数
         var userId: Int = 0
         var userName: String = ""
         var role: String = "worker"
         val info: java.util.Map[String, Any] = new util.HashMap[String, Any]()
+
+        var jobId = 0
 
         var url = ""
         var driver = ""
@@ -47,7 +50,7 @@ object Worker {
                         log = args(i+1).toLowerCase()
                     case "-sql" => //执行SQL语句, 不支持在语句中使用双引号，双引号用~u0034代替
                         SQL = args(i+1).replace("~u0034", "\"")
-                    case "-vars" | "--args" => //传递参数
+                    case "-args" | "-vars" => //传递参数
                         //参数支持PQL所有嵌入规则
                         vars = args(i+1)
                     case "-properties" => //加载properties文件
@@ -56,11 +59,15 @@ object Worker {
                         if (JDBC.hasQrossSystem) {
                             SQL = DataSource.QROSS.querySingleValue("SELECT note_code FROM qross_notes WHERE id=?", args(i+1)).asText("")
                         }
+                    case "-job" =>
+                        jobId = args(i+1).toInteger(0).toInt
                     case "-task" => //执行Keeper任务
                         if (JDBC.hasQrossSystem) {
-                            SQL = DataSource.QROSS.querySingleValue("SELECT command_text FROM qross_tasks_dags WHERE id=?", args(i+1)).asText("")
+                            val row = DataSource.QROSS.queryDataRow("SELECT command_text, args FROM qross_tasks_dags WHERE id=?", args(i+1))
+                            SQL = row.getString("command_text")
+                            params = row.getString("args")
                         }
-                    case "-login" | "--signin" =>
+                    case "-login" | "-signin" =>
                         args(i+1).$split().foreach(item => {
                             if (Set[String]("id", "userid", "uid", "user").contains(item._1.toLowerCase)) {
                                 userId = item._2.toInt
@@ -92,7 +99,9 @@ object Worker {
             //按PQL计算, 支持各种PQL嵌入式表达式, 但不保留引号
             new PQL(SQL, DataHub.DEFAULT.debug(debug, log))
                 .signIn(userId, userName, role, info)
+                .asCommandOf(jobId)
                 .place(vars)
+                .place(params)
                 .run()
         }
         else if (url != "") {
