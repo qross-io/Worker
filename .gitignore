@@ -13,11 +13,13 @@ target/
 *.pyc
 *.idea/
 *.iml
+*.jar
 classes/
 .gradle/
 build/
 gradle/
 out/
+lib/
 buildinfo.properties
 argfile*
 dubbo-consumer/

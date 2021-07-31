@@ -6,7 +6,7 @@ apply plugin: 'maven'
 apply plugin: "com.github.johnrengelman.shadow"
 
 group = 'io.qross'
-version = '1.5.0'
+version = '1.7.0'
 sourceCompatibility = 1.8
 archivesBaseName = "qross-worker"
 
@@ -46,13 +46,15 @@ repositories {
 dependencies {
 	compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.10'
 
-    compile (group: 'io.qross', name: 'pql', version: '1.5.38-SNAPSHOT')
+    compile (group: 'io.qross', name: 'pql', version: '1.7.13-SNAPSHOT')
 
     compile group: 'org.postgresql', name: 'postgresql', version: '42.2.18'
     compile group: 'com.microsoft.sqlserver', name: 'mssql-jdbc', version: '8.2.2.jre8'
     compile group: 'com.oracle.database.jdbc', name: 'ojdbc8', version: '19.9.0.0'
-
     compile group: 'org.apache.hive', name: 'hive-jdbc', version: '3.1.2'
+
+    //加载lib目录下的jar包依赖
+    compile fileTree(dir:'lib', include:['*.jar'])
 }
 
 shadowJar {

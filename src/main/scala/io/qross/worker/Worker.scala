@@ -12,6 +12,8 @@ import io.qross.jdbc.{DataSource, JDBC}
 import io.qross.pql.PQL
 import io.qross.setting.Properties
 
+import scala.collection.mutable
+
 object Worker {
 
     def main(args: Array[String]): Unit = {
@@ -28,10 +30,8 @@ object Worker {
 
         var jobId = 0
 
-        var url = ""
-        var driver = ""
-        var username = ""
-        var password = ""
+        val connection = new mutable.HashMap[String, String]()
+
 
         for (i <- args.indices) {
             if (args(i).startsWith("-") && args.length > i + 1) {
@@ -68,7 +68,7 @@ object Worker {
                             params = row.getString("args")
                         }
                     case "-login" | "-signin" =>
-                        args(i+1).$split().foreach(item => {
+                        args(i+1).splitToMap().foreach(item => {
                             if (Set[String]("id", "userid", "uid", "user").contains(item._1.toLowerCase)) {
                                 userId = item._2.toInt
                             }
@@ -82,30 +82,51 @@ object Worker {
                                 info.put(item._1, item._2)
                             }
                         })
+                    case "-database.type" =>
+                        connection += "database.type" -> args(i+1)
                     case "-driver" =>
-                        driver = args(i+1)
+                        connection += "driver" -> args(i+1)
                     case "-url" =>
-                        url = args(i+1)
+                        connection += "url" -> args(i+1)
                     case "-username" =>
-                        username = args(i+1)
+                        connection += "username" -> args(i+1)
                     case "-password" =>
-                        password = args(i+1)
-                    case _ =>
+                        connection += "password" -> args(i+1)
+                    case "-database.name" =>
+                        connection += "database.name" -> args(i+1)
+                     case _ =>
                 }
             }
         }
 
-        if (SQL != "") {
-            //按PQL计算, 支持各种PQL嵌入式表达式, 但不保留引号
-            new PQL(SQL, DataHub.DEFAULT.debug(debug, log))
-                .signIn(userId, userName, role, info)
-                .asCommandOf(jobId)
-                .place(vars)
-                .place(params)
-                .run()
+        if (SQL != null && SQL != "") {
+            try {
+                //按PQL计算, 支持各种PQL嵌入式表达式, 但不保留引号
+                new PQL(SQL, DataHub.DEFAULT.debug(debug, log))
+                    .signIn(userId, userName, role, info)
+                    .asCommandOf(jobId)
+                    .place(vars)
+                    .place(params)
+                    .run()
+            }
+            catch {
+                case e: Exception =>
+                    println("---------------------------------------------------------------------------------")
+                    System.err.println(e.getReferMessage)
+                    println("---------------------------------------------------------------------------------")
+                    if (debug) {
+                        e.printStackTrace()
+                    }
+                    System.exit(1)
+            }
         }
-        else if (url != "") {
-            Output.writeLine(DataSource.testConnection(driver, url, username, password))
+        else if (connection.nonEmpty) {
+            if (connection.contains("database.name") && connection("database.name") != "") {
+                Output.writeLine(DataSource.testConnection(connection("database.type"), connection("driver"), connection("url"), connection.getOrElse("username", ""), connection.getOrElse("password", ""), connection("database.name")))
+            }
+            else {
+                Output.writeLine(DataSource.testConnection(connection("driver"), connection("url"), connection.getOrElse("username", ""), connection.getOrElse("password", "")))
+            }
         }
         else {
             throw new SQLExecuteException("No PQL sentences to execute.")
