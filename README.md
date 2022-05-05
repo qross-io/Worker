@@ -28,35 +28,35 @@
 
 ## Worker 参数列表
 
-### --file path.sql
+### -file path.sql
 
 执行 PQL 文件, `path`为完整路径, 如`/path/test.sql`, 路径中间如果有空格, 需要加双引号, 如`--file "c:/sql files/test.sql"`。
 
-### --debug on
+### -debug on
 
 是否在运行 PQL 时默认打开调试模式，调试模式可以输出更多的日志，调试模式默认是关闭的。接受任意可识别为`true`的值，如`True`、`1`、`yes`、`on`等，不区分大小写。
 
-### --log html 
+### -log html 
 
 日志的输出格式，默认`text`，输出文本日志。另一个可选值是`html`，输出 HTML 格式的日志，在网页上显示时比较有用。
 
-### --sql "SELECT * FROM table"
+### -sql "SELECT * FROM table"
 
 执行 PQL 语句, 因为有空格, 所以需要用引号把语句引起来, 不建议用这种方式执行过长的 SQL 语句。注意 PQL 语句中的双引号需要转换成`~u0034`。
 
-### --var name1=value1&b=2
+### -var name1=value1&b=2
 
 PQL 语句的入参, 格式同 URL 地址参数规则, 参数名和参数值之间使用等号`=`分隔, 参数和参数之间使用与号`&`分隔。如果使用`--file`运行文件，也可以直接附在文件名后面，例如`--file /usr/qross/test.sql?id=1&name=Tom`
     
-### --login userid=1&username=Tom&role=monitor&email=tom@school.com
+### -login userid=1&username=Tom&role=monitor&email=tom@school.com
 
 可以将用户信息传入 PQL，在 PQL 过程中可以全局变量调用这些鉴权信息，如变量`@role`可以得到`monitor`。如果你的 PQL 过程需要根据不同的用户执行不同的操作时尤其重要。
 
-### --note 24
+### -note 24
 
 [Keeper](/keeper/overview) 调度即时查询的命令，如果使用到了 [Master](/master/overview.md) 的数据管理和即时查询功能请必须保留。
 
-### --task 23476
+### -task 23476
 
 [Keeper](/keeper/overview) 调度 PQL 任务的命令，如果使用 Keeper 调度你的任务请必须保留。
 

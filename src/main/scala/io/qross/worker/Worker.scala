@@ -125,7 +125,7 @@ object Worker {
                 Output.writeLine(DataSource.testConnection(connection("database.type"), connection("driver"), connection("url"), connection.getOrElse("username", ""), connection.getOrElse("password", ""), connection("database.name")))
             }
             else {
-                Output.writeLine(DataSource.testConnection(connection("driver"), connection("url"), connection.getOrElse("username", ""), connection.getOrElse("password", "")))
+                Output.writeLine(DataSource.testConnection(connection.getOrElse("driver", ""), connection("url"), connection.getOrElse("username", ""), connection.getOrElse("password", "")))
             }
         }
         else {
