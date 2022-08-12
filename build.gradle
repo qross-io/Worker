@@ -6,7 +6,7 @@ apply plugin: 'maven'
 apply plugin: "com.github.johnrengelman.shadow"
 
 group = 'io.qross'
-version = '1.8.0'
+version = '2.4.0'
 sourceCompatibility = 1.8
 archivesBaseName = "qross-worker"
 
@@ -46,7 +46,7 @@ repositories {
 dependencies {
 	compile group: 'org.scala-lang', name: 'scala-library', version: '2.12.10'
 
-    compile (group: 'io.qross', name: 'pql', version: '2.4.0')
+    compile (group: 'io.qross', name: 'pql', version: '2.5.3-SNAPSHOT')
 
     compile group: 'org.postgresql', name: 'postgresql', version: '42.2.18'
     compile group: 'com.microsoft.sqlserver', name: 'mssql-jdbc', version: '8.2.2.jre8'
